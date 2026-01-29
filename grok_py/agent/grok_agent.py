@@ -86,6 +86,10 @@ class GrokAgent:
         self.tool_manager = tool_manager or ToolManager()
         self.token_counter = TokenCounter()
 
+        # Discover and register tools
+        if self.config.enable_tools:
+            self.tool_manager.discover_tools()
+
         # Start conversation
         self.client.start_conversation()
 
