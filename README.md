@@ -7,6 +7,8 @@
 
 A Python implementation of the Grok CLI tool, replicating the functionality of the existing TypeScript-based grok-cli project with Python's ecosystem advantages.
 
+This project was built using grok-code-fast-1. This project is a copy of superagent-ai/grok-cli.
+
 ## Features
 
 - 🤖 **Conversational AI Interface**: Natural language interface powered by Grok-3 API
