@@ -1,120 +1,63 @@
-"""Safe code execution tool using Docker containers."""
+"""Enhanced safe code execution tool using Docker containers with advanced security."""
 
 import subprocess
 import shlex
 import tempfile
 import os
 import uuid
+import time
+import logging
 from typing import Optional
 
 from .base import SyncTool, ToolCategory, ToolResult
+from ..utils.sandbox import (
+    DockerManager, SecurityUtils, LanguageDetector, PackageManager, Language
+)
+
+logger = logging.getLogger(__name__)
 
 
 class CodeExecutionTool(SyncTool):
-    """Tool for safe code execution in isolated Docker containers."""
-
-    # Supported languages and their Docker images
-    LANGUAGE_CONFIGS = {
-        'javascript': {
-            'image': 'node:18-alpine',
-            'extension': '.js',
-            'command': ['node', '/tmp/code.js']
-        },
-        'typescript': {
-            'image': 'node:18-alpine',
-            'extension': '.ts',
-            'command': ['npx', 'ts-node', '/tmp/code.ts']
-        },
-        'python': {
-            'image': 'python:3.11-alpine',
-            'extension': '.py',
-            'command': ['python', '/tmp/code.py']
-        },
-        'python3': {
-            'image': 'python:3.11-alpine',
-            'extension': '.py',
-            'command': ['python3', '/tmp/code.py']
-        },
-        'java': {
-            'image': 'openjdk:17-alpine',
-            'extension': '.java',
-            'command': ['sh', '-c', 'javac /tmp/code.java && java -cp /tmp Main']
-        },
-        'cpp': {
-            'image': 'gcc:11-alpine',
-            'extension': '.cpp',
-            'command': ['sh', '-c', 'g++ /tmp/code.cpp -o /tmp/code && /tmp/code']
-        },
-        'c': {
-            'image': 'gcc:11-alpine',
-            'extension': '.c',
-            'command': ['sh', '-c', 'gcc /tmp/code.c -o /tmp/code && /tmp/code']
-        },
-        'go': {
-            'image': 'golang:1.21-alpine',
-            'extension': '.go',
-            'command': ['go', 'run', '/tmp/code.go']
-        },
-        'rust': {
-            'image': 'rust:1.70-alpine',
-            'extension': '.rs',
-            'command': ['sh', '-c', 'rustc /tmp/code.rs -o /tmp/code && /tmp/code']
-        },
-        'bash': {
-            'image': 'alpine:latest',
-            'extension': '.sh',
-            'command': ['bash', '/tmp/code.sh']
-        },
-        'shell': {
-            'image': 'alpine:latest',
-            'extension': '.sh',
-            'command': ['sh', '/tmp/code.sh']
-        },
-        'sh': {
-            'image': 'alpine:latest',
-            'extension': '.sh',
-            'command': ['sh', '/tmp/code.sh']
-        }
-    }
+    """Enhanced tool for safe code execution in isolated Docker containers with advanced security."""
 
     def __init__(self):
         super().__init__(
             name="code_execution",
-            description="Safely execute code snippets in Docker containers (JavaScript, Python, Java, C++, Go, Rust, Bash)",
+            description="Safely execute code snippets in Docker containers with advanced security, multi-language support, and dependency management",
             category=ToolCategory.DEVELOPMENT
         )
+
+        # Initialize sandbox components
+        self.docker_manager = DockerManager()
+        self.security_utils = SecurityUtils()
+        self.language_detector = LanguageDetector()
+        self.package_manager = PackageManager(self.docker_manager)
 
     def execute_sync(
         self,
         operation: str,
         code: str,
-        language: str,
+        language: Optional[str] = None,
         input: Optional[str] = None
     ) -> ToolResult:
-        """Execute code in a safe Docker container.
+        """Execute code in a safe Docker container with enhanced security.
 
         Args:
             operation: Operation to perform ('run' or 'test')
             code: Code to execute
-            language: Programming language (javascript, python, java, cpp, go, rust, bash, etc.)
+            language: Programming language (auto-detected if not provided)
             input: Optional input to provide to the code execution (passed via stdin)
 
         Returns:
             ToolResult with execution result
         """
+        logger.info(f"CodeExecutionTool.execute_sync called with language={language}, operation={operation}")
         try:
             # Validate operation
             if operation not in ['run', 'test']:
                 return ToolResult(
                     success=False,
                     error=f"Invalid operation: {operation}. Valid operations: run, test"
-                )
-
-            # Validate language
-            if language not in self.LANGUAGE_CONFIGS:
-                return ToolResult(
-                    success=False,
-                    error=f"Unsupported language: {language}. Supported: {', '.join(self.LANGUAGE_CONFIGS.keys())}"
                 )
 
             # Validate code
@@ -124,168 +67,213 @@ class CodeExecutionTool(SyncTool):
                     error="Code cannot be empty"
                 )
 
-            # Execute the code
-            return self._execute_code(code, language, input, operation == 'test')
+            # Detect or validate language
+            if language:
+                try:
+                    detected_lang = Language(language.lower())
+                except ValueError:
+                    return ToolResult(
+                        success=False,
+                        error=f"Unsupported language: {language}"
+                    )
+            else:
+                # Auto-detect language
+                detected_lang = self.language_detector.detect(code)
+                logger.info(f"Auto-detected language: {detected_lang.value}")
+
+            logger.info(f"About to call _execute_code_secure with language {detected_lang.value}")
+            # Execute the code with enhanced security
+            return self._execute_code_secure(code, detected_lang, input, operation == 'test')
 
         except Exception as e:
+            logger.error(f"Code execution failed: {e}", exc_info=True)
             return ToolResult(
                 success=False,
                 error=f"Code execution failed: {str(e)}"
             )
 
-    def _execute_code(self, code: str, language: str, input_data: Optional[str], is_test: bool) -> ToolResult:
-        """Execute code in Docker container."""
-        config = self.LANGUAGE_CONFIGS[language]
-
+    def _execute_code_secure(
+        self,
+        code: str,
+        language: Language,
+        input_data: Optional[str],
+        is_test: bool
+    ) -> ToolResult:
+        """Execute code in Docker container with enhanced security and monitoring."""
         # Generate unique container name
         container_name = f"grok-code-exec-{uuid.uuid4().hex[:8]}"
 
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # Write code to temporary file
-                code_file = os.path.join(temp_dir, f'code{config["extension"]}')
-                with open(code_file, 'w', encoding='utf-8') as f:
-                    f.write(code)
+            # Analyze code for security
+            code_analysis = self.security_utils.analyze_and_log_execution(
+                code, language.value, container_name, 'test' if is_test else 'run'
+            )
 
-                # Prepare Docker command
-                docker_cmd = [
-                    'docker', 'run',
-                    '--rm',
-                    '--name', container_name,
-                    '--network', 'none',  # Isolate network
-                    '--memory', '256m',    # Memory limit
-                    '--cpus', '0.5',       # CPU limit
-                    '--read-only',         # Read-only filesystem
-                    '--tmpfs', '/tmp:rw,noexec,nosuid,size=100m',  # Temporary writable directory
-                    '--cap-drop=all',      # Drop all capabilities
-                    '--security-opt=no-new-privileges:true',
-                ]
+            # Prepare execution environment with dependencies
+            config, dep_info = self.package_manager.prepare_execution_environment(
+                code, language, container_name
+            )
 
-                # Mount code file
-                docker_cmd.extend(['-v', f'{code_file}:/tmp/code{config["extension"]}:ro'])
-
-                # Add image and command
-                docker_cmd.append(config['image'])
-                docker_cmd.extend(config['command'])
-
-                command_str = shlex.join(docker_cmd)
-
-                # Execute with timeout
-                timeout_seconds = 30 if not is_test else 60  # Longer timeout for tests
-
-                if input_data:
-                    # Provide input via stdin
-                    result = subprocess.run(
-                        docker_cmd,
-                        input=input_data,
-                        capture_output=True,
-                        text=True,
-                        timeout=timeout_seconds
-                    )
-                else:
-                    result = subprocess.run(
-                        docker_cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=timeout_seconds
-                    )
-
-                # Prepare result data
-                result_data = {
-                    'operation': 'run' if not is_test else 'test',
-                    'language': language,
-                    'code': code,
-                    'input': input_data,
-                    'command': command_str,
-                    'stdout': result.stdout.strip(),
-                    'stderr': result.stderr.strip(),
-                    'exit_code': result.returncode,
-                    'container_name': container_name
-                }
-
-                # Determine success (exit code 0 is typically success)
-                success = result.returncode == 0
-
-                # For some languages/compilation errors, check stderr
-                if success and result.stderr.strip():
-                    # Some warnings are ok, but compilation errors should fail
-                    if any(error_indicator in result.stderr.lower() for error_indicator in
-                           ['error', 'exception', 'traceback', 'compilation failed']):
-                        success = False
-
+            # Ensure Docker image is available
+            if not self.docker_manager.pull_image(config.image):
                 return ToolResult(
-                    success=success,
-                    data=result_data,
-                    error=result.stderr.strip() if not success and result.stderr.strip() else None,
-                    metadata={
-                        'exit_code': result.returncode,
-                        'has_output': bool(result.stdout.strip()),
-                        'has_error': bool(result.stderr.strip()),
-                        'language': language,
-                        'timed_out': False,
-                        'container_name': container_name
-                    }
+                    success=False,
+                    error=f"Failed to pull Docker image: {config.image}"
                 )
 
-        except subprocess.TimeoutExpired:
-            # Try to clean up container if it still exists
-            try:
-                subprocess.run(['docker', 'rm', '-f', container_name],
-                             capture_output=True, timeout=5)
-            except:
-                pass
+            # Create container configuration with enhanced security
+            container_config = self._create_secure_container_config(config, dep_info)
+
+            # Write code to temporary file
+            with tempfile.NamedTemporaryFile(mode='w', suffix=config.extensions[0], delete=False) as code_file:
+                code_file.write(code)
+                code_file_path = code_file.name
+
+            # Add code file to volumes
+            code_filename = f"code{config.extensions[0]}"
+            container_config.volumes[code_file_path] = f"/tmp/{code_filename}:ro"
+
+            # Update command to use the correct filename
+            container_config.command = [cmd.replace(f"/tmp/code{config.extensions[0]}", f"/tmp/{code_filename}")
+                                       for cmd in config.command]
+
+            # Execute with timeout
+            timeout_seconds = 30 if not is_test else 60
+
+            start_time = time.time()
+            result = self.docker_manager.run_container(
+                container_config,
+                container_name,
+                input_data=input_data,
+                timeout=timeout_seconds
+            )
+            execution_time = time.time() - start_time
+
+            # Log execution result
+            anomalies = []  # Could be enhanced with process monitoring
+            code_hash = self.security_utils.hash_code(code)
+            self.security_utils.log_execution_result(
+                container_name, language.value, code_hash,
+                result.success, execution_time, result.exit_code, anomalies
+            )
+
+            # Determine success with enhanced error checking
+            success = result.success
+            if success and result.stderr.strip():
+                # Enhanced error detection
+                error_indicators = [
+                    'error', 'exception', 'traceback', 'compilation failed',
+                    'segmentation fault', 'runtime error', 'panic'
+                ]
+                if any(indicator in result.stderr.lower() for indicator in error_indicators):
+                    success = False
+
+            # Prepare result data
+            result_data = {
+                'operation': 'test' if is_test else 'run',
+                'language': language.value,
+                'code': code,
+                'input': input_data,
+                'stdout': result.stdout.strip(),
+                'stderr': result.stderr.strip(),
+                'exit_code': result.exit_code,
+                'container_name': container_name,
+                'execution_time': execution_time,
+                'security_analysis': {
+                    'risk_score': code_analysis.risk_score,
+                    'has_dependencies': dep_info.has_dependencies,
+                    'suspicious_patterns': len(code_analysis.suspicious_patterns),
+                }
+            }
+
+            return ToolResult(
+                success=success,
+                data=result_data,
+                error=result.stderr.strip() if not success and result.stderr.strip() else None,
+                metadata={
+                    'exit_code': result.exit_code,
+                    'has_output': bool(result.stdout.strip()),
+                    'has_error': bool(result.stderr.strip()),
+                    'language': language.value,
+                    'timed_out': False,
+                    'container_name': container_name,
+                    'execution_time': execution_time,
+                    'risk_score': code_analysis.risk_score,
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error in secure code execution: {e}")
+
+            # Log the error
+            code_hash = self.security_utils.hash_code(code)
+            self.security_utils.log_execution_result(
+                container_name, language.value, code_hash,
+                False, 0, -1, [str(e)]
+            )
+
+            # Cleanup
+            self.docker_manager._cleanup_container(container_name)
+            if 'code_file_path' in locals():
+                os.unlink(code_file_path)
 
             return ToolResult(
                 success=False,
-                error=f"Code execution timed out after {timeout_seconds} seconds",
-                metadata={'timed_out': True, 'container_name': container_name}
+                error=f"Code execution failed: {str(e)}"
             )
-        except FileNotFoundError:
-            return ToolResult(
-                success=False,
-                error="Docker not found. Please ensure Docker is installed and running."
-            )
-        except subprocess.CalledProcessError as e:
-            return ToolResult(
-                success=False,
-                error=f"Docker execution failed: {e.stderr}"
-            )
-        except Exception as e:
-            return ToolResult(
-                success=False,
-                error=f"Unexpected error during code execution: {str(e)}"
-            )
+
+    def _create_secure_container_config(self, config, dep_info):
+        """Create a secure container configuration."""
+        from ..utils.sandbox.docker_manager import ContainerConfig
+
+        # Base security settings
+        container_config = ContainerConfig(
+            image=config.image,
+            command=config.command,
+            memory_limit="512m",  # Increased for dependencies
+            cpu_limit="1.0",      # Increased for better performance
+            network_mode="none",  # Strict network isolation
+            read_only=True,
+            tmpfs_size="200m",    # Larger tmpfs for dependencies
+        )
+
+        # Enhanced security options
+        container_config.security_opts.extend([
+            "--security-opt=no-new-privileges:true",
+            "--security-opt=seccomp=unconfined",  # Could be more restrictive
+        ])
+
+        # Add environment variables for security
+        container_config.env_vars.update({
+            "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "HOME": "/tmp",
+            "USER": "sandbox",
+        })
+
+        return container_config
 
     def get_supported_languages(self) -> list:
         """Get list of supported programming languages."""
-        return list(self.LANGUAGE_CONFIGS.keys())
+        return [lang.value for lang in Language]
 
     def validate_language_support(self, language: str) -> bool:
         """Check if a language is supported."""
-        return language in self.LANGUAGE_CONFIGS
+        try:
+            Language(language.lower())
+            return True
+        except ValueError:
+            return False
 
     def get_language_config(self, language: str) -> dict:
         """Get configuration for a specific language."""
-        return self.LANGUAGE_CONFIGS.get(language, {})</content>
-</xai:function_call">The Code Execution Tool implementation provides safe code execution in Docker containers with comprehensive security measures. It supports multiple programming languages (JavaScript, TypeScript, Python, Java, C++, Go, Rust, Bash) with appropriate Docker images and execution commands.
-
-Key security features include:
-- Network isolation (--network none)
-- Memory and CPU limits
-- Read-only filesystem with limited tmpfs
-- Dropped capabilities
-- No new privileges
-
-The tool handles input/output via stdin/stdout, includes timeout management, and provides detailed error reporting. For each language, it uses the most appropriate Docker base image and compilation/execution commands.
-
-Moving on to the Web Search Tool next, which will integrate with the Tavily API for web search functionality. Let me mark the code execution tool as complete and start on the web search tool. 
-
-<xai:function_call name="update_todo_list">
-<parameter name="updates">[{"id":"implement_code_execution_tool","status":"completed"},{"id":"implement_web_search_tool","status":"in_progress"}] 
-
-Now I need to implement the Web Search Tool using Tavily API. I need to check if TAVILY_API_KEY environment variable is available, and implement the search functionality with different search depths and topics.
-
-Let me implement this tool. It should support query, max_results, search_depth, and topic parameters. 
-
-<xai:function_call name="create_file">
-<parameter name="path">grok_py/tools/web_search.py
+        try:
+            lang = Language(language.lower())
+            config = self.package_manager.get_config(lang)
+            return {
+                'name': config.name,
+                'extensions': config.extensions,
+                'image': config.image,
+                'package_manager': config.package_manager,
+            }
+        except ValueError:
+            return {}</content>
