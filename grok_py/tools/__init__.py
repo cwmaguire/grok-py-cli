@@ -10,3 +10,9 @@ from . import code_execution
 from . import web_search
 from . import todo
 from . import confirmation
+from . import file_ops
+from . import version_control
+from . import sync
+from . import archive
+from . import integrity
+from . import search_replace
