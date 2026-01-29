@@ -1,0 +1,195 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grok-py"
+version = "0.1.0"
+description = "Python implementation of Grok CLI - AI-powered terminal assistant"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8.1"
+authors = [
+    {name = "Grok CLI Team", email = "team@grok-cli.dev"},
+]
+maintainers = [
+    {name = "Grok CLI Team", email = "team@grok-cli.dev"},
+]
+keywords = ["cli", "ai", "grok", "assistant", "terminal", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8.1",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Shells",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "httpx>=0.24.0",
+    "openai>=1.0.0",
+    "tiktoken>=0.5.0",
+    "pygments>=2.15.0",
+    "docker>=6.0.0",
+    "tavily-python>=0.3.0",
+    "pathlib2>=2.3.0; python_version < '3.4'",
+    "typing-extensions>=4.5.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "asyncio-mqtt>=0.13.0",  # For potential future features
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pre-commit>=3.0.0",
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "tox>=4.0.0",
+]
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "myst-parser>=1.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "responses>=0.23.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/superagent-ai/grok-cli"
+Documentation = "https://grok-cli.readthedocs.io/"
+Repository = "https://github.com/superagent-ai/grok-cli"
+Issues = "https://github.com/superagent-ai/grok-cli/issues"
+Changelog = "https://github.com/superagent-ai/grok-cli/blob/main/CHANGELOG.md"
+
+[project.scripts]
+grok-py = "grok_py.__main__:main"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["grok_py*"]
+exclude = ["tests*", "docs*", "scripts*"]
+
+[tool.setuptools.package-data]
+grok_py = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["grok_py"]
+known_third_party = ["rich", "typer", "httpx", "openai"]
+
+[tool.mypy]
+python_version = "3.8.1"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["tavily.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--disable-warnings",
+    "--cov=grok_py",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "system: System tests",
+    "slow: Slow running tests",
+    "online: Tests requiring internet connection",
+]
+
+[tool.coverage.run]
+source = ["grok_py"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "grok_py/__main__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    ".venv",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+]
