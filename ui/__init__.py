@@ -8,6 +8,8 @@ including chat interface, input handling, and various UI components.
 from .chat_interface import ChatInterface
 from .input import InputHandler
 from .components.progress import ProgressIndicator
+from .components.confirm import EnhancedConfirmationDialog, ConfirmationHistory, ConfirmationRecord
+from .components.prompt import UserPromptSystem, InputValidator, TextValidator, NumericValidator, PathValidator, ValidationError
 from .components.status import StatusDisplay
 from .components.confirm import ConfirmationDialog
 
