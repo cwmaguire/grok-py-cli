@@ -17,6 +17,11 @@ from .parser import ResponseParser, ParsedResponse, ResponseType
 from .updates import RealTimeUpdateManager, UIState, UpdatePriority
 from .caching import ResponseCache, HistoryManager, CachedResponse, HistoryEntry
 
+# Advanced input handling components
+from .input_handler import AdvancedInputHandler, ValidationResult
+from .validator import InputValidator
+from .buffer import InputBufferManager, BufferState
+
 __all__ = [
     "ChatInterface",
     "InputHandler",
@@ -35,4 +40,10 @@ __all__ = [
     "HistoryManager",
     "CachedResponse",
     "HistoryEntry",
+    # Advanced input components
+    "AdvancedInputHandler",
+    "ValidationResult",
+    "InputValidator",
+    "InputBufferManager",
+    "BufferState",
 ]
