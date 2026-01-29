@@ -1,9 +1,6 @@
 # Grok CLI Python Implementation
 
-[![CI](https://github.com/superagent-ai/grok-cli/workflows/CI/badge.svg)](https://github.com/superagent-ai/grok-cli/actions)
-[![PyPI](https://img.shields.io/pypi/v/grok-py.svg)](https://pypi.org/project/grok-py/)
-[![Python Version](https://img.shields.io/pypi/pyversions/grok-py.svg)](https://pypi.org/project/grok-py/)
-[![License](https://img.shields.io/pypi/l/grok-py.svg)](https://github.com/superagent-ai/grok-cli/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/grok-py.svg)](https://github.com/cwmaguire/grok-py-cli/blob/main/LICENSE)
 
 A Python implementation of the Grok CLI tool, replicating the functionality of the existing TypeScript-based grok-cli project with Python's ecosystem advantages.
 
@@ -29,17 +26,11 @@ This project uses [uv](https://github.com/astral-sh/uv) for fast, isolated Pytho
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### From PyPI
-
-```bash
-uv pip install grok-py
-```
-
 ### From Source
 
 ```bash
-git clone https://github.com/superagent-ai/grok-cli.git
-cd grok-cli
+git clone https://github.com/cwmaguire/grok-py-cli.git
+cd grok-py-cli
 uv pip install -e .
 ```
 
@@ -48,7 +39,7 @@ uv pip install -e .
 The easiest way to set up the development environment is using the provided setup script:
 
 ```bash
-git clone https://github.com/superagent-ai/grok-cli.git
+git clone https://github.com/cwmaguire/grok-py-cli.git
 cd grok-cli
 ./dev-setup.sh
 ```
@@ -56,7 +47,7 @@ cd grok-cli
 Or manually:
 
 ```bash
-git clone https://github.com/superagent-ai/grok-cli.git
+git clone https://github.com/cwmaguire/grok-py-cli.git
 cd grok-cli
 uv venv
 uv pip install -e .[dev,test,docs]
@@ -203,7 +194,7 @@ make format
 
 ## Documentation
 
-Full documentation is available at [https://grok-cli.readthedocs.io/](https://grok-cli.readthedocs.io/)
+No docs yet.
 
 ## License
 
