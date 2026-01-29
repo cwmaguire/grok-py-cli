@@ -6,6 +6,7 @@ streaming response support, and syntax highlighting.
 """
 
 import asyncio
+import sys
 from typing import List, Optional, Dict, Any
 from rich.console import Console
 from rich.live import Live
@@ -20,6 +21,21 @@ from rich.spinner import Spinner
 import re
 
 from ..utils.logging import get_logger
+
+# Import new UI modules
+sys.path.append('../..')  # Add root to path
+try:
+    from ui.streaming import StreamingResponseProcessor
+    from ui.parser import ResponseParser, ParsedResponse, ResponseType
+    from ui.updates import RealTimeUpdateManager, UIState
+except ImportError:
+    # Fallback if not available
+    StreamingResponseProcessor = None
+    ResponseParser = None
+    ParsedResponse = None
+    ResponseType = None
+    RealTimeUpdateManager = None
+    UIState = None
 
 logger = get_logger(__name__)
 
@@ -94,6 +110,28 @@ class ChatInterface:
         self.layout = Layout()
         self._setup_layout()
 
+        # Initialize enhanced UI components if available
+        self.streaming_processor = None
+        self.response_parser = None
+        self.update_manager = None
+
+        if StreamingResponseProcessor:
+            self.streaming_processor = StreamingResponseProcessor(
+                console=self.console,
+                display_callback=self._on_streaming_update
+            )
+
+        if ResponseParser:
+            self.response_parser = ResponseParser(console=self.console)
+
+        if RealTimeUpdateManager:
+            self.update_manager = RealTimeUpdateManager(
+                console=self.console,
+                live_display=self.live
+            )
+            # Register content component
+            self.update_manager.register_component("chat_content", Text(""))
+
     def _setup_layout(self):
         """Setup the layout for the chat interface."""
         self.layout.split(
@@ -101,6 +139,12 @@ class ChatInterface:
             Layout(name="chat", ratio=1),
             Layout(name="input", size=5)
         )
+
+    def _on_streaming_update(self, content: str):
+        """Callback for streaming updates."""
+        if self.streaming_message:
+            self.streaming_message.content = content
+            self._update_display()
 
     def add_message(self, role: str, content: str):
         """Add a message to the chat history."""
@@ -114,6 +158,8 @@ class ChatInterface:
         self.streaming_message = Message(role, "")
         self.live = Live(self._render_chat(), console=self.console, refresh_per_second=10)
         self.live.start()
+        if self.update_manager:
+            self.update_manager.set_ui_state(UIState.STREAMING)
         logger.info("Started streaming response")
 
     async def stream_chunk(self, chunk: str):
@@ -130,8 +176,72 @@ class ChatInterface:
         if self.streaming_message:
             self.messages.append(self.streaming_message)
             self.streaming_message = None
+        if self.update_manager:
+            self.update_manager.set_ui_state(UIState.IDLE)
         self._update_display()
         logger.info("Ended streaming response")
+
+    async def process_streaming_response_enhanced(self, stream_iterator, role: str = "assistant"):
+        """
+        Process a streaming response using the enhanced processor.
+
+        Args:
+            stream_iterator: Async iterator yielding response chunks
+            role: Role of the message (user/assistant)
+        """
+        if not self.streaming_processor:
+            # Fallback to basic streaming
+            await self.start_streaming_response(role)
+            try:
+                async for chunk in stream_iterator:
+                    await self.stream_chunk(chunk)
+            finally:
+                await self.end_streaming_response()
+            return
+
+        # Use enhanced processor
+        if self.update_manager:
+            self.update_manager.set_ui_state(UIState.STREAMING)
+
+        self.streaming_message = Message(role, "")
+
+        try:
+            # Create live display for the processor
+            live_display = Live(console=self.console, refresh_per_second=10)
+            live_display.start()
+
+            # Process stream
+            full_response = await self.streaming_processor.process_stream(
+                stream_iterator=stream_iterator,
+                live_display=live_display,
+                show_spinner=True
+            )
+
+            live_display.stop()
+
+            # Parse and format the response
+            if self.response_parser:
+                parsed = self.response_parser.parse_response(full_response)
+                rendered_panel = self.response_parser.render_parsed_response(parsed)
+                self.streaming_message.content = full_response  # Keep original content
+                # Could store parsed info for display
+
+            # Add to messages
+            self.messages.append(self.streaming_message)
+            self.streaming_message = None
+
+        except Exception as e:
+            logger.error(f"Enhanced streaming failed: {e}")
+            # Fallback to basic
+            if self.streaming_message:
+                self.streaming_message.content = f"Error: {str(e)}"
+                self.messages.append(self.streaming_message)
+                self.streaming_message = None
+
+        finally:
+            if self.update_manager:
+                self.update_manager.set_ui_state(UIState.IDLE)
+            self._update_display()
 
     def _render_chat(self) -> Layout:
         """Render the current chat state."""
