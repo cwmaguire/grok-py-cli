@@ -49,9 +49,41 @@ def chat(
                         )
                     console.print(f"[bold green]Grok:[/bold green] {response}")
                 else:
-                    # Interactive mode (placeholder for now)
-                    console.print("[yellow]Interactive mode not yet implemented[/yellow]")
-                    console.print("Use: grok-py chat 'your message here'")
+                    # Interactive mode with Rich UI
+                    from grok_py.ui import ChatInterface, InputHandler
+
+                    chat_ui = ChatInterface(console)
+                    input_handler = InputHandler(console)
+
+                    console.print("[bold green]Entering interactive chat mode. Type 'exit' or 'quit' to leave.[/bold green]")
+                    console.print("Press F1 to toggle between chat and command modes.\n")
+
+                    while True:
+                        try:
+                            user_input = input_handler.get_input("You: ")
+                            if not user_input or user_input.lower() in ['exit', 'quit']:
+                                break
+
+                            # Send message and display streaming response
+                            await chat_ui.start_streaming_response("assistant")
+
+                            async for chunk in client.send_message(
+                                message=user_input,
+                                model=model,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                stream=True,
+                            ):
+                                await chat_ui.stream_chunk(chunk)
+
+                            await chat_ui.end_streaming_response()
+
+                        except KeyboardInterrupt:
+                            console.print("\n[yellow]Chat interrupted. Type 'exit' to quit.[/yellow]")
+                            continue
+                        except Exception as e:
+                            chat_ui.display_error(f"Error in chat: {str(e)}")
+                            continue
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)
