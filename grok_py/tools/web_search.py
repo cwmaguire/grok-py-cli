@@ -180,24 +180,4 @@ class WebSearchTool(SyncTool):
             'api_key_set': self.api_key is not None,
             'client_initialized': self.client is not None,
             'available': self.is_available()
-        }</content>
-</xai:function_call">The Web Search Tool implementation integrates with the Tavily API for web search functionality. It includes proper error handling for common API issues like invalid API keys, usage limits, and rate limits. The tool supports configurable search parameters including max results, search depth, and topic categories.
-
-Key features:
-- Validates TAVILY_API_KEY environment variable
-- Handles different search depths (basic/advanced)
-- Supports topic-specific searches (general, news, finance)
-- Comprehensive error handling for API issues
-- Structured result formatting
-
-Moving on to the final tool in Task 3: the Todo Tool. This will handle task planning and tracking with visual progress indicators. Let me mark the web search tool as complete and start on the todo tool. 
-
-<xai:function_call name="update_todo_list">
-<parameter name="updates">[{"id":"implement_web_search_tool","status":"completed"},{"id":"implement_todo_tool","status":"in_progress"}] 
-
-Now I need to implement the Todo Tool for task planning and tracking. This should support creating todo lists, updating todos, and managing their status and priority. It should provide visual feedback with colors for different states.
-
-Let me implement this tool. It will need to maintain state, so I'll use a simple in-memory storage approach for now. 
-
-<xai:function_call name="create_file">
-<parameter name="path">grok_py/tools/todo.py
+        }

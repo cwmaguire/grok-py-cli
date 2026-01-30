@@ -276,4 +276,4 @@ class CodeExecutionTool(SyncTool):
                 'package_manager': config.package_manager,
             }
         except ValueError:
-            return {}</content>
+            return {}

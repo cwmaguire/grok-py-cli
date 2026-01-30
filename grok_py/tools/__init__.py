@@ -19,3 +19,4 @@ from . import integrity
 from . import search_replace
 from . import weather
 from . import news
+from . import database
