@@ -17,3 +17,5 @@ from . import sync
 from . import archive
 from . import integrity
 from . import search_replace
+from . import weather
+from . import news
