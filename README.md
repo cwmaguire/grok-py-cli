@@ -1,5 +1,7 @@
 # Grok CLI Python Implementation
 
+# Fork of superagent-ai/grok-cli re-written in Python
+
 [![License](https://img.shields.io/pypi/l/grok-py.svg)](https://github.com/cwmaguire/grok-py-cli/blob/main/LICENSE)
 
 A Python implementation of the Grok CLI tool, replicating the functionality of the existing TypeScript-based grok-cli project with Python's ecosystem advantages.
