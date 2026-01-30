@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/pypi/l/grok-py.svg)](https://github.com/cwmaguire/grok-py-cli/blob/main/LICENSE)
 
-A Python implementation of the Grok CLI tool, replicating the functionality of the existing TypeScript-based grok-cli project with Python's ecosystem advantages.
+A Python implementation of the Grok CLI tool, replicating the functionality of the existing TypeScript-based grok-cli project. Because AI doesn't do Erlang very well.
 
 This project was built using grok-code-fast-1. This project is a copy of superagent-ai/grok-cli.
 
