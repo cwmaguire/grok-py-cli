@@ -4,6 +4,7 @@ Confirmation Dialog Component
 Provides interactive confirmation dialogs for the Grok CLI interface.
 """
 
+import difflib
 from typing import Optional, Callable
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -126,6 +127,63 @@ class ConfirmationDialog:
         self.console.print(preview_panel)
 
         return self.confirm_with_details(title, f"Do you want to {action} with this content?", default=True)
+
+    def render_diff(self, filename: str, old_content: str, new_content: str) -> Panel:
+        """Render a diff for file changes."""
+        old_lines = old_content.splitlines()
+        new_lines = new_content.splitlines()
+
+        # Generate diff with line numbers
+        matcher = difflib.SequenceMatcher(None, old_lines, new_lines)
+        diff_lines = []
+
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'equal':
+                # Context lines
+                for i in range(i1, i2):
+                    diff_lines.append(f"[dim]{i+1:>3} | {old_lines[i]}[/dim]")
+            elif tag == 'delete':
+                # Removed lines
+                for i in range(i1, i2):
+                    diff_lines.append(f"[red]-{i+1:>3} | {old_lines[i]}[/red]")
+            elif tag == 'insert':
+                # Added lines
+                line_num = i1 + 1
+                for j in range(j1, j2):
+                    diff_lines.append(f"[green]+{line_num:>3} | {new_lines[j]}[/green]")
+                    line_num += 1
+            elif tag == 'replace':
+                # First show deletions
+                for i in range(i1, i2):
+                    diff_lines.append(f"[red]-{i+1:>3} | {old_lines[i]}[/red]")
+                # Then additions
+                line_num = i1 + 1
+                for j in range(j1, j2):
+                    diff_lines.append(f"[green]+{line_num:>3} | {new_lines[j]}[/green]")
+                    line_num += 1
+
+        # If no diff, show message
+        if not diff_lines:
+            diff_text = "[dim]No changes detected[/dim]"
+        else:
+            diff_text = "\n".join(diff_lines)
+
+        # Create panel with filename header and gray separator
+        separator = "─" * 80  # Adjust based on terminal width?
+        content = f"[white]{filename}[/white]\n[dim]{separator}[/dim]\n{diff_text}"
+
+        return Panel(
+            Text(content),
+            title="[bold]File Changes[/bold]",
+            border_style="blue"
+        )
+
+    def confirm_with_diff(self, filename: str, old_content: str, new_content: str, action: str = "apply changes") -> bool:
+        """Show confirmation dialog with diff preview."""
+        diff_panel = self.render_diff(filename, old_content, new_content)
+        self.console.print(diff_panel)
+
+        return self.confirm(f"Do you want to {action}?", default=True)
 
     def cancel_operation(self, reason: str = "Operation cancelled by user"):
         """Display cancellation message."""
