@@ -35,6 +35,7 @@ classifiers = [
 dependencies = [
     "typer[all]>=0.9.0",
     "rich>=13.0.0",
+    "textual>=0.50.0",
     "httpx>=0.24.0",
     "openai>=1.0.0",
     "tiktoken>=0.5.0",
@@ -50,6 +51,11 @@ dependencies = [
     "asyncio-mqtt>=0.13.0",  # For potential future features
     "psycopg2-binary>=2.9.0",
     "PyMySQL>=1.1.0",
+    "google-api-python-client>=2.0.0",
+    "google-auth-httplib2>=0.1.0",
+    "google-auth-oauthlib>=1.0.0",
+    "requests>=2.25.0",
+    "prompt_toolkit>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -196,4 +202,11 @@ exclude = [
     ".tox",
     ".mypy_cache",
     ".pytest_cache",
+]
+
+[dependency-groups]
+dev = [
+    "memory-profiler>=0.61.0",
+    "pytest-httpx>=0.22.0",
+    "pytest-memray>=1.8.0",
 ]
