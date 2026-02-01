@@ -1,9 +1,10 @@
 """Token counting utilities using tiktoken."""
 
 import tiktoken
-from typing import List, Union
+from typing import List, Union, TYPE_CHECKING
 
-from grok_py.grok.client import Message
+if TYPE_CHECKING:
+    from grok_py.grok.client import Message
 
 
 class TokenCounter:
@@ -38,7 +39,7 @@ class TokenCounter:
 
         return len(self.encoding.encode(text))
 
-    def count_messages(self, messages: List[Message]) -> int:
+    def count_messages(self, messages: List["Message"]) -> int:
         """Count tokens in a list of messages.
 
         Args:
@@ -72,7 +73,7 @@ class TokenCounter:
 
         return total_tokens
 
-    def estimate_max_tokens(self, messages: List[Message], max_completion_tokens: int = 4096) -> int:
+    def estimate_max_tokens(self, messages: List["Message"], max_completion_tokens: int = 4096) -> int:
         """Estimate maximum tokens available for completion.
 
         Args:

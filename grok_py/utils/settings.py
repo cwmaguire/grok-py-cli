@@ -32,6 +32,11 @@ def get_config_dir() -> Path:
     return config_dir
 
 
+def get_config_path() -> Path:
+    """Get the path to the configuration file."""
+    return get_config_dir() / "config.json"
+
+
 def get_custom_instructions_path() -> Path:
     """Get the path to custom instructions file."""
     return get_config_dir() / "custom_instructions.md"
@@ -54,3 +59,25 @@ def save_custom_instructions(instructions: str) -> None:
     """Save custom instructions to file."""
     path = get_custom_instructions_path()
     path.write_text(instructions)
+
+
+class SettingsManager:
+    """Manager for application settings."""
+
+    def __init__(self, config_file: Optional[str] = None):
+        self.config_file = config_file or str(get_config_path())
+
+    def load_settings(self) -> dict:
+        """Load settings from file or return defaults."""
+        # Dummy implementation
+        return {
+            'api_key': get_api_key(),
+            'model': 'grok-beta',
+            'tavily_api_key': get_tavily_api_key(),
+            'morph_api_key': get_morph_api_key(),
+        }
+
+    def save_settings(self, settings: dict) -> None:
+        """Save settings to file."""
+        # Dummy implementation
+        pass
