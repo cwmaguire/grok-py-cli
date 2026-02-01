@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Optional, Union, AsyncIterator
 from dataclasses import dataclass
@@ -15,9 +16,13 @@ from grok_py.utils.settings import get_api_key, load_custom_instructions, get_co
 from grok_py.utils.token_counter import TokenCounter
 
 
+logger = logging.getLogger(__name__)
+
+
 class GrokModel(str, Enum):
     """Available Grok models."""
-    GROK_BETA = "grok-beta"
+    GROK_3 = "grok-3"
+    GROK_BETA = "grok-beta"  # Deprecated
     GROK_VISION_BETA = "grok-vision-beta"
 
 
@@ -55,6 +60,7 @@ class ChatCompletion:
     model: str
     choices: List[Dict[str, Any]]
     usage: Dict[str, int]
+    system_fingerprint: Optional[str] = None
 
 
 class GrokAPIError(Exception):
@@ -191,18 +197,23 @@ class GrokClient:
 
         for attempt in range(self.max_retries + 1):
             try:
+                logger.info(f"Making {method} request to {endpoint} (attempt {attempt + 1})")
                 response = await self._client.request(
                     method=method,
                     url=endpoint,
                     json=data,
                     timeout=self.timeout,
                 )
+                logger.info(f"Response status: {response.status_code}")
 
                 if response.status_code == 401:
+                    logger.error("Authentication failed: Invalid API key")
                     raise AuthenticationError("Invalid API key")
                 elif response.status_code == 429:
+                    logger.error("Rate limit exceeded")
                     raise RateLimitError("Rate limit exceeded")
                 elif response.status_code >= 400:
+                    logger.error(f"API error: {response.text}")
                     raise GrokAPIError(f"API error: {response.text}", response.status_code)
 
                 if stream:
@@ -346,7 +357,7 @@ class GrokClient:
     async def send_message(
         self,
         message: str,
-        model: Union[str, GrokModel] = GrokModel.GROK_BETA,
+        model: Union[str, GrokModel] = GrokModel.GROK_3,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
@@ -365,6 +376,7 @@ class GrokClient:
         Returns:
             Response content or async iterator if streaming.
         """
+        logger.info(f"Sending message: {message[:100]}...")
         # Add user message to conversation
         user_msg = Message(role=MessageRole.USER, content=message)
         self.add_message_to_conversation(user_msg)
@@ -383,7 +395,10 @@ class GrokClient:
         else:
             # Extract content from response
             if result.choices and result.choices[0].get("message", {}).get("content"):
-                return result.choices[0]["message"]["content"]
+                content = result.choices[0]["message"]["content"]
+                logger.info(f"Received response: {content[:100]}...")
+                return content
+            logger.warning("No content in response")
             return ""
 
     async def close(self):
