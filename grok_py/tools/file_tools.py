@@ -98,7 +98,7 @@ class ViewFileTool(SyncTool):
                 # List directory contents
                 contents = []
                 try:
-                    for item in sorted(path_obj.iterdir()):
+                    for item in sorted(path_obj.iterdir(), key=lambda x: x.name):
                         item_type = "directory" if item.is_dir() else "file"
                         contents.append({
                             "name": item.name,

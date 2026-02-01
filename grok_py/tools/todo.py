@@ -349,18 +349,4 @@ class TodoTool(SyncTool):
         """Clear all todos. Returns the number of todos cleared."""
         count = len(self.todos)
         self.todos.clear()
-        return count</content>
-</xai:function_call">The Todo Tool implementation provides comprehensive task planning and tracking functionality. It supports creating todo lists with multiple items, updating existing todos, and managing their status and priority levels. The tool includes visual feedback with emoji indicators and color-coded status representation.
-
-Key features:
-- Create todo lists with custom IDs or auto-generated UUIDs
-- Update todo content, status, and priority
-- Status tracking: pending, in_progress, completed
-- Priority levels: high, medium, low
-- Visual representation with status and priority indicators
-- In-memory storage (could be extended to persistent storage)
-
-Now I need to update the tools/__init__.py file to register all the new tools. Let me check the current content of that file first. 
-
-<xai:function_call name="view_file">
-<parameter name="path">grok_py/tools/__init__.py
+        return count

@@ -73,13 +73,22 @@ class BashTool(AsyncTool):
             working_dir = cwd or os.getcwd()
 
             # Execute command
-            process = await asyncio.create_subprocess_exec(
-                *process_cmd if not shell_flag else ['bash', '-c', command],
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=working_dir,
-                shell=shell_flag
-            )
+            if shell_flag:
+                # Use shell execution for complex commands
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=working_dir
+                )
+            else:
+                # Use exec for parsed commands
+                process = await asyncio.create_subprocess_exec(
+                    *process_cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=working_dir
+                )
 
             try:
                 # Wait for completion with timeout
@@ -128,5 +137,12 @@ class BashTool(AsyncTool):
         except Exception as e:
             return ToolResult(
                 success=False,
-                error=f"Failed to execute command: {str(e)}"
+                error=f"Failed to execute command: {str(e)}",
+                data={
+                    'stdout': '',
+                    'stderr': str(e),
+                    'exit_code': -1,
+                    'command': command,
+                    'working_directory': working_dir
+                }
             )

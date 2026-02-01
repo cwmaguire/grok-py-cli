@@ -476,10 +476,4 @@ class ListArchiveTool(SyncTool):
             })
 
         except Exception as e:
-            return ToolResult(success=False, error=f"Archive listing failed: {str(e)}")</content>
-</xai:function_call">The file has been created successfully at grok_py/tools/archive.py. You can view it with the view_file tool if needed. The operation was confirmed and executed.
-
-Now let me update the todo to mark archive_compression as completed and move to the next one: integrity.py. 
-
-<xai:function_call name="update_todo_list">
-<parameter name="updates">[{"id":"archive_compression","status":"completed","content":"Implement Archive and Compression (tools/archive.py) utilities for zip, tar, gzip operations"},{"id":"integrity_verification","status":"in_progress","content":"Add File Integrity Verification (tools/integrity.py) with checksums, corruption detection, repair"}]
+            return ToolResult(success=False, error=f"Archive listing failed: {str(e)}")

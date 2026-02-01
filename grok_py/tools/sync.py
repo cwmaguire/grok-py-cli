@@ -450,10 +450,4 @@ class BackupDirectoryTool(AsyncTool):
             })
 
         except Exception as e:
-            return ToolResult(success=False, error=f"Backup creation failed: {str(e)}")</content>
-</xai:function_call">The file has been created successfully at grok_py/tools/sync.py. You can view it with the view_file tool if needed. The operation was confirmed and executed.
-
-Now let me update the todo to mark file_sync as completed and move to the next one: archive.py. 
-
-<xai:function_call name="update_todo_list">
-<parameter name="updates">[{"id":"file_sync","status":"completed","content":"Develop File Synchronization Tools (tools/sync.py) for comparing directories, detecting changes, and bidirectional sync operations"},{"id":"archive_compression","status":"in_progress","content":"Implement Archive and Compression (tools/archive.py) utilities for zip, tar, gzip operations"}]
+            return ToolResult(success=False, error=f"Backup creation failed: {str(e)}")

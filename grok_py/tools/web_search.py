@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 from tavily import TavilyClient
-from tavily import InvalidAPIKeyError, UsageLimitError, RateLimitError
+from tavily import InvalidAPIKeyError, UsageLimitExceededError
 
 from .base import SyncTool, ToolCategory, ToolResult
 
@@ -152,15 +152,10 @@ class WebSearchTool(SyncTool):
                 success=False,
                 error="Invalid TAVILY_API_KEY. Please check your API key."
             )
-        except UsageLimitError:
+        except UsageLimitExceededError:
             return ToolResult(
                 success=False,
                 error="Tavily API usage limit exceeded. Please check your account."
-            )
-        except RateLimitError:
-            return ToolResult(
-                success=False,
-                error="Tavily API rate limit exceeded. Please try again later."
             )
         except Exception as e:
             error_msg = f"Web search failed: {str(e)}"
