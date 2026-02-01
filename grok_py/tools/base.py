@@ -56,10 +56,10 @@ class ToolDefinition(BaseModel):
 class BaseTool(ABC):
     """Abstract base class for all tools."""
 
-    def __init__(self, name: str, description: str, category: ToolCategory):
-        self.name = name
-        self.description = description
-        self.category = category
+    def __init__(self, name: Optional[str] = None, description: Optional[str] = None, category: Optional[ToolCategory] = None):
+        self.name = name or getattr(self.__class__, '_tool_name', self.__class__.__name__.lower())
+        self.description = description or getattr(self.__class__, '_tool_description', self.__class__.__doc__ or f"{self.__class__.__name__} tool")
+        self.category = category or getattr(self.__class__, '_tool_category', ToolCategory.UTILITY)
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     @abstractmethod
