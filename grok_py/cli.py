@@ -2,6 +2,7 @@
 
 import typer
 from rich.console import Console
+from grok_py.utils.logging import get_logger, setup_logging
 
 # TODO: Import when implemented
 # from grok_py.agent import grok_agent
@@ -12,7 +13,10 @@ app = typer.Typer(
     help="AI-powered terminal assistant - Python implementation of Grok CLI",
     add_completion=False,
 )
+
 console = Console()
+setup_logging(log_file="grok_cli.log")
+logger = get_logger(__name__)
 
 
 @app.callback()
@@ -25,19 +29,35 @@ def callback():
 def chat(
     message: str = typer.Argument(None, help="Message to send to Grok"),
     interactive: bool = typer.Option(True, "--interactive/--non-interactive", help="Run in interactive mode"),
-    model: str = typer.Option("grok-beta", "--model", "-m", help="Grok model to use"),
+    model: str = typer.Option("grok-3", "--model", "-m", help="Grok model to use"),
     temperature: float = typer.Option(0.7, "--temperature", "-t", help="Temperature for response generation"),
     max_tokens: int = typer.Option(None, "--max-tokens", help="Maximum tokens in response"),
+    mock: bool = typer.Option(False, "--mock", help="Use mock responses for testing"),
 ):
     """Start a chat session with Grok."""
     console.print("[bold blue]Grok CLI[/bold blue] - Python Implementation")
     console.print("Initializing...")
 
     async def run_chat():
+        logger.info("Starting chat session")
         try:
-            from grok_py.grok.client import GrokClient
+            if mock:
+                # Mock client for testing
+                class MockClient:
+                    async def send_message(self, message, **kwargs):
+                        await asyncio.sleep(0.5)  # Simulate delay
+                        return f"Mock response to: {message}"
+                    async def __aenter__(self):
+                        return self
+                    async def __aexit__(self, exc_type, exc_val, exc_tb):
+                        pass
 
-            async with GrokClient() as client:
+                client = MockClient()
+            else:
+                from grok_py.grok.client import GrokClient
+                client = GrokClient()
+
+            async with client:
                 if message:
                     # Single message mode
                     with console.status("[bold green]Thinking..."):
@@ -60,31 +80,63 @@ def chat(
 
                     while True:
                         try:
-                            user_input = input_handler.get_input("You: ")
+                            logger.info("Waiting for user input")
+                            # Display current chat state
+                            chat_ui._update_display()
+
+                            user_input = input_handler.get_input("You: ", chat_interface=chat_ui)
                             if not user_input or user_input.lower() in ['exit', 'quit']:
+                                logger.info("User exited chat")
                                 break
 
-                            # Send message and display streaming response
-                            await chat_ui.start_streaming_response("assistant")
+                            logger.info(f"User input: {user_input}")
+                            # Add user message to chat
+                            chat_ui.add_message("user", user_input)
 
-                            async for chunk in client.send_message(
-                                message=user_input,
-                                model=model,
-                                temperature=temperature,
-                                max_tokens=max_tokens,
-                                stream=True,
-                            ):
-                                await chat_ui.stream_chunk(chunk)
+                            # Display updated chat with user message
+                            chat_ui._update_display()
 
-                            await chat_ui.end_streaming_response()
+                            logger.info("Sending message to Grok")
+                            # Start spinner and set processing border
+                            chat_ui.set_input_border_color("yellow")
+                            await chat_ui.start_spinner(token_count=0)  # TODO: Get actual token count if available
+
+                            try:
+                                # Send message and get response
+                                response = await client.send_message(
+                                    message=user_input,
+                                    model=model,
+                                    temperature=temperature,
+                                    max_tokens=max_tokens,
+                                    stream=False,
+                                )
+                                # TODO: Handle tool calls and display tool error messages in chat if tools fail
+                            except Exception as tool_error:
+                                # Placeholder for tool error handling
+                                chat_ui.add_message("system", f"Tool error: {str(tool_error)}")
+                                response = "I encountered an error while processing your request."
+                            finally:
+                                # Stop spinner and reset border
+                                await chat_ui.stop_spinner()
+                                chat_ui.set_input_border_color("blue")
+
+                            logger.info(f"Received response: {response[:100]}...")
+                            # Add assistant response to chat
+                            chat_ui.add_message("assistant", response)
 
                         except KeyboardInterrupt:
-                            console.print("\n[yellow]Chat interrupted. Type 'exit' to quit.[/yellow]")
+                            logger.info("Chat interrupted by user")
+                            chat_ui.add_message("system", "Chat interrupted. Type 'exit' to quit.")
                             continue
                         except Exception as e:
-                            chat_ui.display_error(f"Error in chat: {str(e)}")
+                            logger.error(f"Error in chat loop: {e}")
+                            chat_ui.add_message("system", f"Error: {str(e)}")
                             continue
         except Exception as e:
+            logger.error(f"Error in run_chat: {e}")
+            # Stop the live display on error
+            if 'chat_ui' in locals() and chat_ui.live:
+                chat_ui.live.stop()
             console.print(f"[red]Error: {e}[/red]")
             raise typer.Exit(1)
 
