@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# 2026-01-31 CM
+# Run the grok-py-cli
+
+uv run python -m grok_py chat
