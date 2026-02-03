@@ -1,8 +1,10 @@
 """Main CLI application for grok-py."""
 
+import json
 import typer
 from rich.console import Console
 from grok_py.utils.logging import get_logger, setup_logging
+from grok_py.grok.client import MessageRole
 
 # TODO: Import when implemented
 # from grok_py.agent import grok_agent
@@ -332,6 +334,53 @@ def chat(
                                     stream=False,
                                     tools=tools,
                                 )
+
+                                # Handle tool calls if present
+                                if response.startswith("Grok is calling tools:"):
+                                    # Get tool calls from the last assistant message
+                                    messages = client.get_conversation_messages()
+                                    if messages:
+                                        last_msg = messages[-1]
+                                        if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+                                            tool_calls_data = last_msg.tool_calls
+                                            # Execute tools
+                                            tool_results = await tool_manager.execute_tools_parallel([
+                                                {
+                                                    "name": tc["function"]["name"],
+                                                    "parameters": json.loads(tc["function"]["arguments"])
+                                                }
+                                                for tc in tool_calls_data
+                                            ])
+
+                                            # Add tool results to conversation
+                                            for tc, result in zip(tool_calls_data, tool_results):
+                                                tool_msg = Message(
+                                                    role=MessageRole.TOOL,
+                                                    content=json.dumps({
+                                                        "success": result.success,
+                                                        "data": result.data,
+                                                        "error": result.error
+                                                    }),
+                                                    tool_call_id=tc["id"]
+                                                )
+                                                client.add_message_to_conversation(tool_msg)
+
+                                            # Get follow-up response
+                                            followup_result = await client.chat_completion(
+                                                model=model,
+                                                temperature=temperature,
+                                                max_tokens=max_tokens,
+                                                stream=False
+                                            )
+
+                                            if followup_result.choices and followup_result.choices[0].get("message", {}).get("content"):
+                                                response = followup_result.choices[0]["message"]["content"]
+                                            else:
+                                                response = "Tool execution completed, but no follow-up response generated."
+                                        else:
+                                            response = "Tool calls detected but unable to execute."
+                                    else:
+                                        response = "Unable to retrieve tool calls for execution."
                                 # TODO: Handle tool calls and display tool error messages in chat if tools fail
                             except Exception as tool_error:
                                 # Placeholder for tool error handling

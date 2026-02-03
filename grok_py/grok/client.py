@@ -41,6 +41,7 @@ class Message:
     content: str
     name: Optional[str] = None
     tool_call_id: Optional[str] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
 
 
 @dataclass
@@ -308,11 +309,14 @@ class GrokClient:
 
                 # Save assistant response
                 if result.choices:
-                    assistant_content = result.choices[0].get("message", {}).get("content", "")
-                    if assistant_content:
+                    message_data = result.choices[0].get("message", {})
+                    assistant_content = message_data.get("content", "")
+                    tool_calls = message_data.get("tool_calls")
+                    if assistant_content or tool_calls:
                         assistant_msg = Message(
                             role=MessageRole.ASSISTANT,
-                            content=assistant_content
+                            content=assistant_content,
+                            tool_calls=tool_calls
                         )
                         self.add_message_to_conversation(assistant_msg)
 
@@ -518,11 +522,26 @@ class GrokClient:
             max_tokens=max_tokens,
             stream=stream,
             tools=tools,
+            save_to_conversation=False,  # We'll save manually
         )
 
         if stream:
             return result
         else:
+            # Save assistant response to conversation
+            if result.choices:
+                message_data = result.choices[0].get("message", {})
+                assistant_content = message_data.get("content", "")
+                tool_calls = message_data.get("tool_calls")
+                if assistant_content or tool_calls:
+                    assistant_msg = Message(
+                        role=MessageRole.ASSISTANT,
+                        content=assistant_content,
+                        tool_calls=tool_calls
+                    )
+                    self.add_message_to_conversation(assistant_msg)
+                    self.save_conversation()
+
             # Extract content from response
             if result.choices:
                 message_data = result.choices[0].get("message", {})
