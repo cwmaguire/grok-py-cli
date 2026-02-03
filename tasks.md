@@ -15,8 +15,8 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 
 - [x] Research MCP specification: Read the official MCP documentation thoroughly to understand the protocol.
 - [x] Understand MCP key concepts: Study handshake, tool discovery, execution, and security mechanisms.
-- [ ] Set up development environment: Install MCP SDK or equivalent library in the project.
-- [ ] Configure project dependencies: Update requirements.txt or equivalent with MCP-related libraries.
+- [x] Set up development environment: Install MCP SDK or equivalent library in the project.
+- [x] Configure project dependencies: Update requirements.txt or equivalent with MCP-related libraries.
 - [ ] Create unit tests for MCP client handshake: Write tests for establishing connections.
 - [ ] Implement basic MCP client handshake: Code the initial connection logic.
 - [ ] Implement MCP client connection management: Add reconnection and error handling.

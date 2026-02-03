@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Python implementation of Grok CLI - AI-powered terminal assistant"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8.1"
+requires-python = ">=3.10.0"
 authors = [
     {name = "Grok CLI Team", email = "team@grok-cli.dev"},
 ]
@@ -23,8 +23,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8.1",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -56,6 +54,7 @@ dependencies = [
     "google-auth-oauthlib>=1.0.0",
     "requests>=2.25.0",
     "prompt_toolkit>=3.0.0",
+    "mcp>=1.26.0",
 ]
 
 [project.optional-dependencies]
@@ -109,7 +108,7 @@ grok_py = ["py.typed"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -132,7 +131,7 @@ known_first_party = ["grok_py"]
 known_third_party = ["rich", "typer", "httpx", "openai"]
 
 [tool.mypy]
-python_version = "3.8.1"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
