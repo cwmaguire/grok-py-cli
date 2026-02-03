@@ -220,3 +220,46 @@ class TestMCPCoreFunctionality:
 
             mock_connect.assert_called_once()
             assert tools == []
+
+
+@pytest.mark.integration
+class TestMCPIntegration:
+    """Integration tests with actual MCP server."""
+
+    @pytest.mark.asyncio
+    async def test_tool_discovery_with_test_server(self):
+        """Test tool discovery with the test MCP server."""
+        # This test requires the test server to be running
+        # For now, it's a placeholder
+        pytest.skip("Integration test requires running MCP server")
+
+        # Example of how it would work:
+        # server_params = StdioServerParameters(
+        #     command="python",
+        #     args=["tests/test_mcp_server.py"]
+        # )
+        # client = MCPClient(server_params)
+        #
+        # connected = await client.connect()
+        # assert connected
+        #
+        # tools = await client.list_tools()
+        # assert len(tools) == 3  # add_numbers, get_weather, search_files
+        # assert any(t.name == "add_numbers" for t in tools)
+
+    @pytest.mark.asyncio
+    async def test_tool_execution_with_test_server(self):
+        """Test tool execution with the test MCP server."""
+        pytest.skip("Integration test requires running MCP server")
+
+        # Example:
+        # server_params = StdioServerParameters(
+        #     command="python",
+        #     args=["tests/test_mcp_server.py"]
+        # )
+        # client = MCPClient(server_params)
+        #
+        # await client.connect()
+        # result = await client.execute_tool("add_numbers", {"a": 5, "b": 3})
+        # assert result.success
+        # assert result.data == 8
