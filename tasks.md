@@ -24,8 +24,8 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 
 ## Phase 2: Tool Discovery (Weeks 5-8)
 
-- [ ] Implement tool discovery mechanism: Code logic to query available tools from MCP servers.
-- [ ] Add MCP tool registry integration: Integrate discovered tools into the existing tool registry.
+- [x] Implement tool discovery mechanism: Code logic to query available tools from MCP servers.
+- [x] Add MCP tool registry integration: Integrate discovered tools into the existing tool registry.
 - [ ] Develop CLI commands for listing available MCP tools: Add commands like 'mcp list-tools'.
 - [ ] Test tool discovery with sample MCP servers: Set up test servers and verify discovery works.
 - [ ] Implement tool metadata parsing: Parse tool descriptions, parameters, and schemas.

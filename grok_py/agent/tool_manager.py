@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 from concurrent.futures import ThreadPoolExecutor
 
 from grok_py.tools.base import BaseTool, ToolCategory, ToolDefinition, ToolResult
+from grok_py.mcp.client import MCPClient
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class ToolManager:
         """
         self._tools: Dict[str, BaseTool] = {}
         self._tool_definitions: Dict[str, ToolDefinition] = {}
+        self._mcp_clients: Dict[str, MCPClient] = {}
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
@@ -68,6 +70,72 @@ class ToolManager:
             self.logger.info(f"Unregistered tool: {tool_name}")
             return True
         return False
+
+    def register_mcp_client(self, client_id: str, mcp_client: MCPClient) -> None:
+        """Register an MCP client.
+
+        Args:
+            client_id: Unique identifier for the MCP client
+            mcp_client: MCP client instance
+        """
+        if client_id in self._mcp_clients:
+            self.logger.warning(f"MCP client '{client_id}' already registered, overwriting")
+
+        self._mcp_clients[client_id] = mcp_client
+        self.logger.info(f"Registered MCP client: {client_id}")
+
+    def unregister_mcp_client(self, client_id: str) -> bool:
+        """Unregister an MCP client.
+
+        Args:
+            client_id: Identifier of MCP client to unregister
+
+        Returns:
+            True if client was unregistered, False if not found
+        """
+        if client_id in self._mcp_clients:
+            # Disconnect the client
+            asyncio.create_task(self._mcp_clients[client_id].disconnect())
+            del self._mcp_clients[client_id]
+            self.logger.info(f"Unregistered MCP client: {client_id}")
+            return True
+        return False
+
+    async def discover_mcp_tools(self, client_id: str) -> int:
+        """Discover and register tools from an MCP client.
+
+        Args:
+            client_id: ID of the registered MCP client
+
+        Returns:
+            Number of tools discovered and registered
+        """
+        if client_id not in self._mcp_clients:
+            self.logger.error(f"MCP client '{client_id}' not found")
+            return 0
+
+        client = self._mcp_clients[client_id]
+        tools_registered = 0
+
+        try:
+            # Get tools from MCP client
+            mcp_tools = await client.list_tools()
+
+            for tool_def in mcp_tools:
+                # Create a wrapper for MCP tools
+                mcp_tool = MCPToolWrapper(client, tool_def)
+                tool_name = f"mcp_{client_id}_{tool_def.name}"
+
+                # Register the wrapper as a tool
+                self._tools[tool_name] = mcp_tool
+                self._tool_definitions[tool_name] = tool_def
+                tools_registered += 1
+
+            self.logger.info(f"Discovered and registered {tools_registered} MCP tools from {client_id}")
+        except Exception as e:
+            self.logger.error(f"Failed to discover tools from MCP client {client_id}: {e}")
+
+        return tools_registered
 
     def get_tool(self, tool_name: str) -> Optional[BaseTool]:
         """Get a registered tool by name.
@@ -297,3 +365,56 @@ class ToolManager:
                 }
 
         return health_results
+
+
+class MCPToolWrapper(BaseTool):
+    """Wrapper to make MCP tools compatible with the BaseTool interface."""
+
+    def __init__(self, mcp_client: MCPClient, tool_definition: ToolDefinition):
+        """Initialize MCP tool wrapper.
+
+        Args:
+            mcp_client: The MCP client to use for execution
+            tool_definition: Definition of the MCP tool
+        """
+        self.mcp_client = mcp_client
+        self.tool_definition = tool_definition
+        self._name = tool_definition.name
+        self._description = tool_definition.description
+        self._category = tool_definition.category
+
+    @property
+    def name(self) -> str:
+        """Tool name."""
+        return self._name
+
+    @property
+    def description(self) -> str:
+        """Tool description."""
+        return self._description
+
+    @property
+    def category(self) -> ToolCategory:
+        """Tool category."""
+        return self._category
+
+    def get_definition(self) -> ToolDefinition:
+        """Get tool definition."""
+        return self.tool_definition
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """Execute the MCP tool.
+
+        Args:
+            **kwargs: Tool parameters
+
+        Returns:
+            Tool execution result
+        """
+        try:
+            # Execute via MCP client
+            result = await self.mcp_client.execute_tool(self.name, kwargs)
+            return result
+        except Exception as e:
+            logger.error(f"Error executing MCP tool {self.name}: {e}")
+            return ToolResult(success=False, error=str(e))
