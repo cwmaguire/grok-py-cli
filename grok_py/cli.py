@@ -197,6 +197,65 @@ def chat(
     async def run_chat():
         logger.info("Starting chat session")
         try:
+            # Initialize tools if not mock
+            tools = None
+            if not mock:
+                from grok_py.mcp.config import MCPConfig
+                from grok_py.agent.tool_manager import ToolManager
+
+                config = MCPConfig()
+                tool_manager = ToolManager()
+
+                servers = config.list_servers()
+                if servers:
+                    console.print("Discovering MCP tools...")
+                    # Register MCP clients from config
+                    for server_id, server_config in servers.items():
+                        client_mcp = config.create_mcp_client(server_id)
+                        if client_mcp:
+                            tool_manager.register_mcp_client(server_id, client_mcp)
+                            # Discover tools from this client
+                            try:
+                                tools_count = await tool_manager.discover_mcp_tools(server_id, config)
+                                console.print(f"  • {server_id}: {tools_count} tools discovered")
+                            except Exception as e:
+                                console.print(f"  • {server_id}: Error discovering tools - {e}")
+
+                    # Convert tool definitions to OpenAI format
+                    tool_definitions = tool_manager.get_all_definitions()
+                    if tool_definitions:
+                        tools = []
+                        for tool_name, tool_def in tool_definitions.items():
+                            # Convert ToolDefinition to OpenAI function format
+                            function_def = {
+                                "name": tool_name,
+                                "description": tool_def.description,
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "required": []
+                                }
+                            }
+
+                            for param_name, param in tool_def.parameters.items():
+                                function_def["parameters"]["properties"][param_name] = {
+                                    "type": param.type,
+                                    "description": param.description
+                                }
+                                if param.required:
+                                    function_def["parameters"]["required"].append(param_name)
+                                if param.default is not None:
+                                    function_def["parameters"]["properties"][param_name]["default"] = param.default
+                                if param.enum:
+                                    function_def["parameters"]["properties"][param_name]["enum"] = param.enum
+
+                            tools.append({
+                                "type": "function",
+                                "function": function_def
+                            })
+                        console.print(f"Prepared {len(tools)} tools for Grok")
+                        logger.debug(f"Tools: {tools}")
+
             if mock:
                 # Mock client for testing
                 class MockClient:
@@ -217,13 +276,19 @@ def chat(
                 if message:
                     # Single message mode
                     with console.status("[bold green]Thinking..."):
-                        response = await client.send_message(
-                            message=message,
-                            model=model,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                        )
-                    console.print(f"[bold green]Grok:[/bold green] {response}")
+                        try:
+                            response = await client.send_message(
+                                message=message,
+                                model=model,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                tools=tools,
+                            )
+                            console.print(f"[bold green]Grok:[/bold green] {response}")
+                        except Exception as e:
+                            console.print(f"[red]Error: {e}[/red]")
+                            import traceback
+                            traceback.print_exc()
                 else:
                     # Interactive mode with Rich UI
                     from grok_py.ui import ChatInterface, InputHandler
@@ -265,6 +330,7 @@ def chat(
                                     temperature=temperature,
                                     max_tokens=max_tokens,
                                     stream=False,
+                                    tools=tools,
                                 )
                                 # TODO: Handle tool calls and display tool error messages in chat if tools fail
                             except Exception as tool_error:

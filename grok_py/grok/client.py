@@ -258,6 +258,7 @@ class GrokClient:
         Returns:
             ChatCompletion or async iterator of response chunks if streaming.
         """
+
         # Get messages from conversation or parameter
         if messages is None and use_conversation:
             messages = self.get_conversation_messages()
@@ -353,53 +354,6 @@ class GrokClient:
                         continue
 
 
-
-    async def send_message(
-        self,
-        message: str,
-        model: Union[str, GrokModel] = GrokModel.GROK_3,
-        temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        stream: bool = False,
-        tools: Optional[List[Dict[str, Any]]] = None,
-    ) -> Union[str, AsyncIterator[str]]:
-        """Send a message and get a response.
-
-        Args:
-            message: User message.
-            model: Model to use.
-            temperature: Sampling temperature.
-            max_tokens: Maximum tokens to generate.
-            stream: Whether to stream the response.
-            tools: Available tools.
-
-        Returns:
-            Response content or async iterator if streaming.
-        """
-        logger.info(f"Sending message: {message[:100]}...")
-        # Add user message to conversation
-        user_msg = Message(role=MessageRole.USER, content=message)
-        self.add_message_to_conversation(user_msg)
-
-        # Get completion
-        result = await self.chat_completion(
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=stream,
-            tools=tools,
-        )
-
-        if stream:
-            return result
-        else:
-            # Extract content from response
-            if result.choices and result.choices[0].get("message", {}).get("content"):
-                content = result.choices[0]["message"]["content"]
-                logger.info(f"Received response: {content[:100]}...")
-                return content
-            logger.warning("No content in response")
-            return ""
 
     async def close(self):
         """Close the HTTP client."""
@@ -570,8 +524,20 @@ class GrokClient:
             return result
         else:
             # Extract content from response
-            if result.choices and result.choices[0].get("message", {}).get("content"):
-                return result.choices[0]["message"]["content"]
+            if result.choices:
+                message_data = result.choices[0].get("message", {})
+                content = message_data.get("content")
+                tool_calls = message_data.get("tool_calls", [])
+                if content:
+                    return content
+                elif tool_calls:
+                    tool_call_info = []
+                    for tc in tool_calls:
+                        func = tc.get("function", {})
+                        tool_call_info.append(f"{func.get('name', 'unknown')}({func.get('arguments', '')})")
+                    return f"Grok is calling tools: {', '.join(tool_call_info)}"
+                else:
+                    return "I don't have a response for that."
             return ""
 
     async def close(self):
