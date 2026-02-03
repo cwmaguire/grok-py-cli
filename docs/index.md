@@ -16,6 +16,7 @@ Grok CLI is an AI-powered terminal assistant that allows you to interact with Gr
 
 - [Basic Usage](usage/basic.md)
 - [Available Tools](tools/index.md)
+- [MCP Integration](mcp.md)
 - [Advanced Features](usage/advanced.md)
 
 ## Developer Documentation
@@ -36,6 +37,7 @@ quickstart
 configuration
 usage/basic
 tools/index
+mcp
 usage/advanced
 developer/architecture
 api/index

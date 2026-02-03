@@ -196,7 +196,13 @@ make format
 
 ## Documentation
 
-No docs yet.
+Complete documentation is available in the [docs/](docs/) directory, including:
+
+- [Installation and Setup](docs/installation.md)
+- [Basic Usage Guide](docs/usage/basic.md)
+- [Available Tools](docs/tools/index.md)
+- [MCP Integration](docs/mcp.md)
+- [Developer Documentation](docs/developer/architecture.md)
 
 ## License
 
