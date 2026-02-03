@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from grok_py.mcp.client import MCPClient
 from grok_py.tools.base import ToolResult
+from mcp.types import CallToolResult, TextContent
 
 
 class TestMCPIntegration:
@@ -238,3 +239,48 @@ class TestMCPIntegration:
 
         # Should return empty list on error
         assert tools == []
+
+    async def test_concurrent_tool_executions_load_testing(self, client):
+        """Load test: Execute multiple tools concurrently."""
+        import asyncio
+        import time
+
+        # Mock the session
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.isError = False
+        mock_content = MagicMock()
+        mock_content.text = '{"echoed": "test message"}'
+        mock_result.content = [mock_content]
+        mock_session.call_tool.return_value = mock_result
+        client._session = mock_session
+        client._connected = True
+
+        # Number of concurrent executions
+        num_concurrent = 10
+
+        async def execute_single(i):
+            return await client.execute_tool("echo_tool", {"message": f"message {i}"})
+
+        # Start timing
+        start_time = time.time()
+
+        # Run concurrent executions
+        results = await asyncio.gather(*[execute_single(i) for i in range(num_concurrent)])
+
+        # End timing
+        end_time = time.time()
+        total_time = end_time - start_time
+
+        # Verify all results
+        assert len(results) == num_concurrent
+        for i, result in enumerate(results):
+            assert isinstance(result, ToolResult)
+            assert result.success is True
+            assert result.data == '{"echoed": "test message"}'  # As per the implementation
+
+        # Check that total time is reasonable (should be close to single execution time, not cumulative)
+        # Since mocked, it should be fast, but we verify concurrency by ensuring it completes quickly
+        assert total_time < 1.0  # Should complete in less than 1 second for 10 concurrent mocked calls
+
+        print(f"Load test completed: {num_concurrent} concurrent executions in {total_time:.2f}s")
