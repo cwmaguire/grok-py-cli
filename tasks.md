@@ -14,7 +14,7 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 ## Phase 1: Foundation (Weeks 1-4)
 
 - [x] Research MCP specification: Read the official MCP documentation thoroughly to understand the protocol.
-- [ ] Understand MCP key concepts: Study handshake, tool discovery, execution, and security mechanisms.
+- [x] Understand MCP key concepts: Study handshake, tool discovery, execution, and security mechanisms.
 - [ ] Set up development environment: Install MCP SDK or equivalent library in the project.
 - [ ] Configure project dependencies: Update requirements.txt or equivalent with MCP-related libraries.
 - [ ] Create unit tests for MCP client handshake: Write tests for establishing connections.
