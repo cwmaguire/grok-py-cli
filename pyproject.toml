@@ -55,6 +55,7 @@ dependencies = [
     "requests>=2.25.0",
     "prompt_toolkit>=3.0.0",
     "mcp>=1.26.0",
+    "PyYAML>=6.0.0",
 ]
 
 [project.optional-dependencies]

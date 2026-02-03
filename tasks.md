@@ -45,12 +45,12 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 
 ## Phase 4: User Interface and Configuration (Weeks 13-16)
 
-- [ ] Develop CLI commands for MCP tool management: Commands to add/remove tool sources.
-- [ ] Implement configuration file support for tool sources: Allow YAML/JSON config files.
+- [x] Develop CLI commands for MCP tool management: Commands to add/remove tool sources.
+- [x] Implement configuration file support for tool sources: Allow YAML/JSON config files.
 - [ ] Create user documentation: Write usage guides and examples.
 - [ ] Implement tool parameter configuration: Allow users to set defaults.
-- [ ] Add help commands: CLI help for MCP-related features.
-- [ ] Create sample configurations: Provide example config files.
+- [x] Add help commands: CLI help for MCP-related features.
+- [x] Create sample configurations: Provide example config files.
 - [ ] User acceptance testing: Manual testing of UI features.
 
 ## Phase 5: Testing and Refinement (Weeks 17-20)

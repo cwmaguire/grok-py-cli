@@ -35,9 +35,29 @@ def callback():
 @mcp_app.command("list-tools")
 def mcp_list_tools():
     """List all available MCP tools."""
+    from grok_py.mcp.config import MCPConfig
+    from grok_py.agent.tool_manager import ToolManager
+
     console.print("[bold blue]MCP Tools[/bold blue]")
-    console.print("Listing MCP tools is not yet implemented")
-    # TODO: Implement listing MCP tools from registered clients
+
+    config = MCPConfig()
+    tool_manager = ToolManager()
+
+    # Register MCP clients from config
+    for server_id, server_config in config.list_servers().items():
+        client = config.create_mcp_client(server_id)
+        if client:
+            tool_manager.register_mcp_client(server_id, client)
+            # TODO: In a real implementation, we'd connect and discover tools here
+
+    # For now, just show configured servers
+    servers = config.list_servers()
+    if not servers:
+        console.print("No MCP servers configured")
+        return
+
+    for server_id in servers:
+        console.print(f"• {server_id}: Configured")
 
 
 @mcp_app.command("add-server")
@@ -46,9 +66,13 @@ def mcp_add_server(
     command: str = typer.Option(None, "--command", "-c", help="Command to run the MCP server (for stdio)"),
     args: str = typer.Option("", "--args", "-a", help="Arguments for the command (space-separated)"),
     url: str = typer.Option(None, "--url", "-u", help="HTTP URL for the MCP server"),
+    timeout: float = typer.Option(30.0, "--timeout", "-t", help="Timeout in seconds"),
+    max_retries: int = typer.Option(3, "--max-retries", "-r", help="Maximum retry attempts"),
 ):
     """Add an MCP server."""
-    console.print(f"[bold blue]Adding MCP server[/bold blue]: {server_id}")
+    from grok_py.mcp.config import MCPConfig
+
+    config = MCPConfig()
 
     if command and url:
         console.print("[red]Error: Cannot specify both command and URL[/red]")
@@ -57,10 +81,33 @@ def mcp_add_server(
         console.print("[red]Error: Must specify either command or URL[/red]")
         return
 
-    # TODO: Implement adding MCP server to configuration
-    console.print(f"Server type: {'stdio' if command else 'http'}")
+    server_config = {
+        "timeout": timeout,
+        "max_retries": max_retries,
+    }
+
     if command:
-        console.print(f"Command: {command} {args}")
+        server_config.update({
+            "type": "stdio",
+            "command": command,
+            "args": args.split() if args else [],
+        })
+    else:
+        server_config.update({
+            "type": "http",
+            "url": url,
+        })
+
+    try:
+        config.add_server(server_id, server_config)
+        console.print(f"[green]✓[/green] Added MCP server: {server_id}")
+        console.print(f"  Type: {server_config['type']}")
+        if command:
+            console.print(f"  Command: {command} {' '.join(server_config['args'])}")
+        else:
+            console.print(f"  URL: {url}")
+    except Exception as e:
+        console.print(f"[red]Error adding server: {e}[/red]")
 
 
 @mcp_app.command("remove-server")
@@ -68,16 +115,43 @@ def mcp_remove_server(
     server_id: str = typer.Argument(..., help="ID of the MCP server to remove"),
 ):
     """Remove an MCP server."""
-    console.print(f"[bold blue]Removing MCP server[/bold blue]: {server_id}")
-    # TODO: Implement removing MCP server
+    from grok_py.mcp.config import MCPConfig
+
+    config = MCPConfig()
+
+    if config.remove_server(server_id):
+        console.print(f"[green]✓[/green] Removed MCP server: {server_id}")
+    else:
+        console.print(f"[red]Server '{server_id}' not found[/red]")
 
 
 @mcp_app.command("list-servers")
 def mcp_list_servers():
     """List configured MCP servers."""
+    from grok_py.mcp.config import MCPConfig
+
+    config = MCPConfig()
+    servers = config.list_servers()
+
     console.print("[bold blue]MCP Servers[/bold blue]")
-    console.print("No MCP servers configured yet")
-    # TODO: Implement listing configured MCP servers
+
+    if not servers:
+        console.print("No MCP servers configured")
+        return
+
+    for server_id, server_config in servers.items():
+        console.print(f"[bold]{server_id}[/bold]")
+        console.print(f"  Type: {server_config.get('type', 'unknown')}")
+        if server_config.get('type') == 'stdio':
+            console.print(f"  Command: {server_config.get('command', 'N/A')}")
+            args = server_config.get('args', [])
+            if args:
+                console.print(f"  Args: {' '.join(args)}")
+        elif server_config.get('type') == 'http':
+            console.print(f"  URL: {server_config.get('url', 'N/A')}")
+        console.print(f"  Timeout: {server_config.get('timeout', 30.0)}s")
+        console.print(f"  Max retries: {server_config.get('max_retries', 3)}")
+        console.print()
 
 
 @app.command()

@@ -1,0 +1,29 @@
+# Example MCP server configuration file
+# This file shows how to configure MCP servers for Grok CLI
+
+servers:
+  # Example stdio-based MCP server
+  my_stdio_server:
+    type: stdio
+    command: python
+    args: ["path/to/my_mcp_server.py"]
+    timeout: 30.0
+    max_retries: 3
+
+  # Example HTTP-based MCP server
+  my_http_server:
+    type: http
+    url: "http://localhost:8080/mcp"
+    timeout: 30.0
+    max_retries: 3
+
+  # Example with custom timeout and retries
+  robust_server:
+    type: stdio
+    command: node
+    args: ["server.js", "--port", "3000"]
+    timeout: 60.0
+    max_retries: 5
+
+# Additional configuration options can be added here
+# For example, default tool parameters, security settings, etc.
