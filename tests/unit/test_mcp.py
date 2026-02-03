@@ -1,9 +1,13 @@
-"""Unit tests for MCP client."""
+"""Unit tests for MCP functionality."""
 
 import pytest
+import tempfile
+import yaml
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 from grok_py.mcp.client import MCPClient
+from grok_py.mcp.config import MCPConfig
 from grok_py.tools.base import ToolDefinition, ToolResult
 
 
@@ -189,3 +193,69 @@ class TestMCPClient:
 
         client._connected = True
         assert client.is_connected
+
+
+class TestMCPConfig:
+    """Test suite for MCPConfig."""
+
+    def test_initialization_default_config(self):
+        """Test MCP config initialization with default config file."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "mcp_config.yaml"
+            config = MCPConfig(str(config_file))
+            assert config.config_file == config_file
+            assert config._config == {}
+
+    def test_load_config_yaml(self):
+        """Test loading YAML configuration."""
+        config_data = {
+            "servers": {
+                "test_server": {
+                    "type": "stdio",
+                    "command": "test_cmd"
+                }
+            },
+            "tool_defaults": {
+                "test_server.tool1": {
+                    "param1": "default_value"
+                }
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(config_data, f)
+            config_file = Path(f.name)
+
+        try:
+            config = MCPConfig(str(config_file))
+            assert config.list_servers() == config_data["servers"]
+            assert config.get_tool_defaults() == config_data["tool_defaults"]
+        finally:
+            config_file.unlink()
+
+    def test_get_tool_defaults_empty(self):
+        """Test getting tool defaults when none configured."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "mcp_config.yaml"
+            config = MCPConfig(str(config_file))
+            assert config.get_tool_defaults() == {}
+
+    def test_add_server(self):
+        """Test adding a server configuration."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "mcp_config.yaml"
+            config = MCPConfig(str(config_file))
+
+            server_config = {
+                "type": "stdio",
+                "command": "test_cmd",
+                "timeout": 30.0
+            }
+            config.add_server("test_server", server_config)
+
+            assert config.get_server_config("test_server") == server_config
+            # Check file was saved
+            assert config_file.exists()
+            with open(config_file, 'r') as f:
+                saved_config = yaml.safe_load(f)
+                assert saved_config["servers"]["test_server"] == server_config

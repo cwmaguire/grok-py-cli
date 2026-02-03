@@ -92,6 +92,14 @@ class MCPConfig:
         """
         return self._config.get('servers', {})
 
+    def get_tool_defaults(self) -> Dict[str, Dict[str, Any]]:
+        """Get tool default parameters.
+
+        Returns:
+            Dictionary mapping tool keys (server_id.tool_name) to default parameter dicts
+        """
+        return self._config.get('tool_defaults', {})
+
     def create_mcp_client(self, server_id: str) -> Optional[MCPClient]:
         """Create an MCP client from server configuration.
 

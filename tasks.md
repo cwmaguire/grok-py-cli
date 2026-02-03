@@ -57,7 +57,7 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 - [x] Develop CLI commands for MCP tool management: Commands to add/remove tool sources.
 - [x] Implement configuration file support for tool sources: Allow YAML/JSON config files.
 - [x] Create user documentation: Write usage guides and examples.
-- [ ] Implement tool parameter configuration: Allow users to set defaults.
+- [x] Implement tool parameter configuration: Allow users to set defaults.
 - [x] Add help commands: CLI help for MCP-related features.
 - [x] Create sample configurations: Provide example config files.
 - [ ] User acceptance testing: Manual testing of UI features.

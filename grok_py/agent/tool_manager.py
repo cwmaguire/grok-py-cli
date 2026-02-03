@@ -103,11 +103,12 @@ class ToolManager:
             return True
         return False
 
-    async def discover_mcp_tools(self, client_id: str) -> int:
+    async def discover_mcp_tools(self, client_id: str, mcp_config: Optional['MCPConfig'] = None) -> int:
         """Discover and register tools from an MCP client.
 
         Args:
             client_id: ID of the registered MCP client
+            mcp_config: MCP configuration for applying tool defaults
 
         Returns:
             Number of tools discovered and registered
@@ -124,6 +125,15 @@ class ToolManager:
             mcp_tools = await client.list_tools()
 
             for tool_def in mcp_tools:
+                # Apply user-defined defaults if config provided
+                if mcp_config:
+                    tool_key = f"{client_id}.{tool_def.name}"
+                    defaults = mcp_config.get_tool_defaults().get(tool_key, {})
+                    # Update parameter defaults
+                    for param_name, param in tool_def.parameters.items():
+                        if param_name in defaults:
+                            param.default = defaults[param_name]
+
                 # Create a wrapper for MCP tools
                 mcp_tool = MCPToolWrapper(client, tool_def)
                 tool_name = f"mcp_{client_id}_{tool_def.name}"

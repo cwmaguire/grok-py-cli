@@ -25,5 +25,19 @@ servers:
     timeout: 60.0
     max_retries: 5
 
+# Tool parameter defaults
+# Allows setting default values for MCP tool parameters
+# Key format: server_id.tool_name
+tool_defaults:
+  # Example: Set defaults for a tool named 'search' from 'my_stdio_server'
+  my_stdio_server.search:
+    query: "default search term"
+    limit: 10
+
+  # Example: Defaults for another tool
+  robust_server.process_data:
+    format: "json"
+    validate: true
+
 # Additional configuration options can be added here
-# For example, default tool parameters, security settings, etc.
+# For example, security settings, etc.

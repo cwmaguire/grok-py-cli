@@ -35,6 +35,7 @@ def callback():
 @mcp_app.command("list-tools")
 def mcp_list_tools():
     """List all available MCP tools."""
+    import asyncio
     from grok_py.mcp.config import MCPConfig
     from grok_py.agent.tool_manager import ToolManager
 
@@ -43,21 +44,47 @@ def mcp_list_tools():
     config = MCPConfig()
     tool_manager = ToolManager()
 
-    # Register MCP clients from config
-    for server_id, server_config in config.list_servers().items():
-        client = config.create_mcp_client(server_id)
-        if client:
-            tool_manager.register_mcp_client(server_id, client)
-            # TODO: In a real implementation, we'd connect and discover tools here
-
-    # For now, just show configured servers
     servers = config.list_servers()
     if not servers:
         console.print("No MCP servers configured")
         return
 
-    for server_id in servers:
-        console.print(f"• {server_id}: Configured")
+    async def discover_and_list():
+        # Register MCP clients from config
+        for server_id, server_config in servers.items():
+            client = config.create_mcp_client(server_id)
+            if client:
+                tool_manager.register_mcp_client(server_id, client)
+                # Discover tools from this client
+                try:
+                    tools_count = await tool_manager.discover_mcp_tools(server_id, config)
+                    console.print(f"• {server_id}: {tools_count} tools discovered")
+                except Exception as e:
+                    console.print(f"• {server_id}: Error discovering tools - {e}")
+            else:
+                console.print(f"• {server_id}: Failed to create client")
+
+        # List discovered tools
+        tool_definitions = tool_manager.get_all_definitions()
+        mcp_tools = {name: defn for name, defn in tool_definitions.items() if name.startswith('mcp_')}
+
+        if not mcp_tools:
+            console.print("No MCP tools discovered")
+            return
+
+        console.print(f"\n[bold]Discovered {len(mcp_tools)} MCP tools:[/bold]")
+        for tool_name, tool_def in mcp_tools.items():
+            console.print(f"\n[cyan]{tool_name}[/cyan]")
+            console.print(f"  Description: {tool_def.description}")
+            if tool_def.parameters:
+                console.print("  Parameters:")
+                for param_name, param in tool_def.parameters.items():
+                    default_str = f" (default: {param.default})" if param.default is not None else ""
+                    console.print(f"    - {param_name}: {param.type} - {param.description}{default_str}")
+            else:
+                console.print("  Parameters: None")
+
+    asyncio.run(discover_and_list())
 
 
 @mcp_app.command("add-server")
