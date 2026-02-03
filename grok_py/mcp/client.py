@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional, Union
 
 from mcp import ClientSession, StdioServerParameters, types
@@ -16,16 +17,18 @@ logger = logging.getLogger(__name__)
 class MCPClient:
     """Client for connecting to MCP servers using the official MCP protocol."""
 
-    def __init__(self, server_params: Union[StdioServerParameters, str], timeout: float = 30.0, max_retries: int = 3):
+    def __init__(self, server_params: Union[StdioServerParameters, str], connect_timeout: float = 30.0, execute_timeout: float = 10.0, max_retries: int = 3):
         """Initialize MCP client.
 
         Args:
             server_params: Either StdioServerParameters for stdio servers or URL string for HTTP servers
-            timeout: Request timeout in seconds
+            connect_timeout: Connection timeout in seconds
+            execute_timeout: Execution timeout in seconds
             max_retries: Maximum number of reconnection attempts
         """
         self.server_params = server_params
-        self.timeout = timeout
+        self.connect_timeout = connect_timeout
+        self.execute_timeout = execute_timeout
         self.max_retries = max_retries
         self._read = None
         self._write = None
@@ -63,12 +66,12 @@ class MCPClient:
                     # Stdio connection - create persistent session
                     self._read, self._write = await asyncio.wait_for(
                         stdio_client.__aenter__(self.server_params),
-                        timeout=self.timeout
+                        timeout=self.connect_timeout
                     )
                     self._session = ClientSession(self._read, self._write)
                     await asyncio.wait_for(
                         self._session.initialize(),
-                        timeout=self.timeout
+                        timeout=self.connect_timeout
                     )
                     self._connected = True
                     logger.info("Connected to MCP server via stdio")
@@ -77,12 +80,12 @@ class MCPClient:
                     # HTTP/SSE connection - create persistent session
                     self._read, self._write = await asyncio.wait_for(
                         sse_client.__aenter__(self.server_params),
-                        timeout=self.timeout
+                        timeout=self.connect_timeout
                     )
                     self._session = ClientSession(self._read, self._write)
                     await asyncio.wait_for(
                         self._session.initialize(),
-                        timeout=self.timeout
+                        timeout=self.connect_timeout
                     )
                     self._connected = True
                     logger.info(f"Connected to MCP server at {self.server_params}")
@@ -132,7 +135,7 @@ class MCPClient:
             # Use the session to list tools with timeout
             tools_result = await asyncio.wait_for(
                 self._session.list_tools(),
-                timeout=self.timeout
+                timeout=self.execute_timeout
             )
             tools = []
 
@@ -183,14 +186,17 @@ class MCPClient:
             if not await self.connect():
                 raise RuntimeError("Not connected to MCP server and reconnection failed")
 
+        start_time = time.time()
         try:
             # Call the tool using the session with timeout
             result = await asyncio.wait_for(
                 self._session.call_tool(tool_name, arguments=parameters),
-                timeout=self.timeout
+                timeout=self.execute_timeout
             )
 
             # Process the result
+            elapsed = time.time() - start_time
+            logger.info(f"Tool {tool_name} executed in {elapsed:.2f}s")
             if result.isError:
                 return ToolResult(
                     success=False,
@@ -210,11 +216,13 @@ class MCPClient:
                     metadata={"tool": tool_name}
                 )
         except asyncio.TimeoutError:
-            logger.error(f"Timeout while executing tool {tool_name}")
+            elapsed = time.time() - start_time
+            logger.error(f"Timeout while executing tool {tool_name} after {elapsed:.2f}s")
             self._connected = False  # Mark as disconnected
             return ToolResult(success=False, error="Tool execution timed out")
         except Exception as e:
-            logger.error(f"Error executing tool {tool_name}: {e}")
+            elapsed = time.time() - start_time
+            logger.error(f"Error executing tool {tool_name} after {elapsed:.2f}s: {e}")
             self._connected = False  # Mark as disconnected on error
             return ToolResult(success=False, error=str(e))
 

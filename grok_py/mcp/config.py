@@ -128,4 +128,4 @@ class MCPConfig:
         timeout = config.get('timeout', 30.0)
         max_retries = config.get('max_retries', 3)
 
-        return MCPClient(server_params, timeout=timeout, max_retries=max_retries)
+        return MCPClient(server_params, connect_timeout=timeout, max_retries=max_retries)

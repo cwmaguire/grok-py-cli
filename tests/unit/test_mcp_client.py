@@ -87,7 +87,7 @@ class TestMCPClientHandshake:
             args=["10"]
         )
 
-        client = MCPClient(server_params, timeout=0.1)
+        client = MCPClient(server_params, connect_timeout=0.1)
 
         # Mock timeout
         with patch('grok_py.mcp.client.stdio_client') as mock_stdio:
