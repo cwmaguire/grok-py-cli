@@ -32,6 +32,25 @@ class MCPClient:
         self._session: Optional[ClientSession] = None
         self._connected = False
 
+    def get_server_params_dict(self) -> Dict[str, Any]:
+        """Get server parameters as a serializable dictionary for sandbox execution.
+
+        Returns:
+            Dictionary containing server parameters
+        """
+        if isinstance(self.server_params, str):
+            return {"type": "sse", "url": self.server_params}
+        else:
+            # StdioServerParameters
+            return {
+                "type": "stdio",
+                "command": self.server_params.command,
+                "args": self.server_params.args,
+                "env": dict(self.server_params.env) if self.server_params.env else None,
+                "cwd": self.server_params.cwd,
+                "encoding": self.server_params.encoding
+            }
+
     async def connect(self) -> bool:
         """Connect to the MCP server and perform handshake with retry logic.
 

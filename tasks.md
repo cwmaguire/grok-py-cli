@@ -4,12 +4,21 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 
 ## Instructions for LLM
 
-- Reference MCP_PRD.md for detailed requirements.
-- Work on **ONE** incomplete task at a time.
-- Mark the task as complete by changing [ ] to [x] when finished.
-- Include testing where applicable for each task (e.g., write and run unit tests for implemented functionality).
-- Commit your work after completing a task (e.g., git add . && git commit -m "Completed task: [task description]").
-- If a task has dependencies that are not met, skip to the next available task or note the blocker.
+- **MANDATORY: Process EXACTLY ONE incomplete task per session.** Do not work on, mention, or plan multiple tasks in a single response. This is critical to avoid context overload—loading all tasks at once can exceed token limits and cause errors.
+- Step-by-step process:
+  1. Read the tasks.md file.
+  2. Identify the FIRST incomplete task (marked [ ]) that has no unresolved dependencies. If the first one is blocked, note the blocker and move to the next viable one—but still limit to ONE task total.
+  3. Explicitly state: "Selected task: [paste the exact task description here]."
+  4. Reference MCP_PRD.md only as needed for this single task.
+  5. Implement the task, including any code changes, documentation, or other work.
+  6. Include testing: Write and run unit tests or manual verification for this task's functionality.
+  7. Mark ONLY this task as complete by changing [ ] to [x] in an updated version of tasks.md.
+  8. Commit your work: Run `git add . && git commit -m "Completed task: [brief task description]"`.
+  9. Self-check: Confirm no other tasks were modified or referenced.
+  10. End your response immediately with: "TASK COMPLETE - READY FOR NEXT SESSION". Do NOT proceed to any other tasks.
+  11. Always use uv for Python dependencies and running Python
+- If all tasks are complete, output: "ALL TASKS COMPLETE".
+- Ignore any urge to batch tasks for efficiency—strictly adhere to one per session.
 
 ## Phase 1: Foundation (Weeks 1-4)
 
@@ -34,7 +43,7 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 
 ## Phase 3: Tool Execution (Weeks 9-12)
 
-- [ ] Implement secure tool execution in isolated containers: Use Docker for sandboxing.
+- [x] Implement secure tool execution in isolated containers: Use Docker for sandboxing.
 - [x] Integrate MCP tool execution with existing pipeline: Modify the execution engine to handle MCP tools.
 - [x] Add error handling and timeout mechanisms: Handle failures gracefully.
 - [x] Implement input validation for tool parameters: Use JSON Schema validation.

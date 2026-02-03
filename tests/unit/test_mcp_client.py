@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from mcp import ClientSession, StdioServerParameters
 from grok_py.mcp.client import MCPClient
+from grok_py.agent.tool_manager import MCPToolWrapper
 
 
 class TestMCPClientHandshake:
@@ -263,3 +264,100 @@ class TestMCPIntegration:
         # result = await client.execute_tool("add_numbers", {"a": 5, "b": 3})
         # assert result.success
         # assert result.data == 8
+
+
+class TestMCPClientServerParams:
+    """Test cases for MCP client server parameters serialization."""
+
+    def test_get_server_params_dict_sse(self):
+        """Test serialization of SSE server parameters."""
+        client = MCPClient("http://example.com/mcp")
+        params = client.get_server_params_dict()
+        assert params == {"type": "sse", "url": "http://example.com/mcp"}
+
+    def test_get_server_params_dict_stdio(self):
+        """Test serialization of stdio server parameters."""
+        server_params = StdioServerParameters(
+            command="python",
+            args=["server.py"],
+            env={"PATH": "/usr/bin"},
+            cwd="/home/user",
+            encoding="utf-8"
+        )
+        client = MCPClient(server_params)
+        params = client.get_server_params_dict()
+        expected = {
+            "type": "stdio",
+            "command": "python",
+            "args": ["server.py"],
+            "env": {"PATH": "/usr/bin"},
+            "cwd": "/home/user",
+            "encoding": "utf-8"
+        }
+        assert params == expected
+
+
+class TestMCPToolWrapperSecureExecution:
+    """Test cases for secure MCP tool execution in Docker containers."""
+
+    def test_generate_sandbox_code(self):
+        """Test generation of sandbox execution code."""
+        server_params = {"type": "sse", "url": "http://test.com"}
+        code = MCPToolWrapper.generate_sandbox_code(
+            server_params, "test_tool", {"param": "value"}, 30.0
+        )
+
+        assert "import asyncio" in code
+        assert "http://test.com" in code
+        assert "test_tool" in code
+        assert '"param": "value"' in code
+        assert "asyncio.run(main())" in code
+
+    @pytest.mark.asyncio
+    @patch('grok_py.agent.tool_manager.CodeExecutionTool')
+    async def test_secure_execute_success(self, mock_code_tool_cls):
+        """Test successful secure tool execution."""
+        # Mock the code execution tool
+        mock_tool = MagicMock()
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.data = '{"success": true, "data": "output"}'
+        mock_result.error = None
+        mock_tool.execute_sync.return_value = mock_result
+        mock_code_tool_cls.return_value = mock_tool
+
+        # Create wrapper
+        server_params = StdioServerParameters(command="echo", args=["test"])
+        client = MCPClient(server_params)
+        tool_def = MagicMock()
+        tool_def.name = "test_tool"
+        wrapper = MCPToolWrapper(client, tool_def)
+
+        result = await wrapper.execute(param="value")
+
+        assert result.success is True
+        assert result.data == "output"
+        mock_tool.execute_sync.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch('grok_py.agent.tool_manager.CodeExecutionTool')
+    async def test_secure_execute_error(self, mock_code_tool_cls):
+        """Test secure tool execution with error."""
+        # Mock the code execution tool with error
+        mock_tool = MagicMock()
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.data = '{"success": false, "error": "Tool failed"}'
+        mock_tool.execute_sync.return_value = mock_result
+        mock_code_tool_cls.return_value = mock_tool
+
+        # Create wrapper
+        client = MCPClient("http://test.com")
+        tool_def = MagicMock()
+        tool_def.name = "failing_tool"
+        wrapper = MCPToolWrapper(client, tool_def)
+
+        result = await wrapper.execute()
+
+        assert result.success is False
+        assert result.error == "Tool failed"
