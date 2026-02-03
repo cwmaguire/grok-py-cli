@@ -60,7 +60,7 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 - [x] Implement tool parameter configuration: Allow users to set defaults.
 - [x] Add help commands: CLI help for MCP-related features.
 - [x] Create sample configurations: Provide example config files.
-- [ ] User acceptance testing: Manual testing of UI features.
+- [x] User acceptance testing: Manual testing of UI features.
 
 ## Phase 5: Testing and Refinement (Weeks 17-20)
 
