@@ -16,47 +16,72 @@ logger = logging.getLogger(__name__)
 class MCPClient:
     """Client for connecting to MCP servers using the official MCP protocol."""
 
-    def __init__(self, server_params: Union[StdioServerParameters, str], timeout: float = 30.0):
+    def __init__(self, server_params: Union[StdioServerParameters, str], timeout: float = 30.0, max_retries: int = 3):
         """Initialize MCP client.
 
         Args:
             server_params: Either StdioServerParameters for stdio servers or URL string for HTTP servers
             timeout: Request timeout in seconds
+            max_retries: Maximum number of reconnection attempts
         """
         self.server_params = server_params
         self.timeout = timeout
+        self.max_retries = max_retries
         self._read = None
         self._write = None
         self._session: Optional[ClientSession] = None
         self._connected = False
 
     async def connect(self) -> bool:
-        """Connect to the MCP server and perform handshake.
+        """Connect to the MCP server and perform handshake with retry logic.
 
         Returns:
             True if connection and handshake successful, False otherwise
         """
-        try:
-            if isinstance(self.server_params, StdioServerParameters):
-                # Stdio connection - create persistent session
-                self._read, self._write = await stdio_client.__aenter__(self.server_params)
-                self._session = ClientSession(self._read, self._write)
-                await self._session.initialize()
-                self._connected = True
-                logger.info("Connected to MCP server via stdio")
-            else:
-                # HTTP/SSE connection - create persistent session
-                self._read, self._write = await sse_client.__aenter__(self.server_params)
-                self._session = ClientSession(self._read, self._write)
-                await self._session.initialize()
-                self._connected = True
-                logger.info(f"Connected to MCP server at {self.server_params}")
+        for attempt in range(self.max_retries + 1):
+            try:
+                if isinstance(self.server_params, StdioServerParameters):
+                    # Stdio connection - create persistent session
+                    self._read, self._write = await asyncio.wait_for(
+                        stdio_client.__aenter__(self.server_params),
+                        timeout=self.timeout
+                    )
+                    self._session = ClientSession(self._read, self._write)
+                    await asyncio.wait_for(
+                        self._session.initialize(),
+                        timeout=self.timeout
+                    )
+                    self._connected = True
+                    logger.info("Connected to MCP server via stdio")
+                    return True
+                else:
+                    # HTTP/SSE connection - create persistent session
+                    self._read, self._write = await asyncio.wait_for(
+                        sse_client.__aenter__(self.server_params),
+                        timeout=self.timeout
+                    )
+                    self._session = ClientSession(self._read, self._write)
+                    await asyncio.wait_for(
+                        self._session.initialize(),
+                        timeout=self.timeout
+                    )
+                    self._connected = True
+                    logger.info(f"Connected to MCP server at {self.server_params}")
+                    return True
 
-            return True
-        except Exception as e:
-            logger.error(f"Error connecting to MCP server: {e}")
-            self._connected = False
-            return False
+            except asyncio.TimeoutError:
+                logger.warning(f"Connection attempt {attempt + 1} timed out")
+            except Exception as e:
+                logger.warning(f"Connection attempt {attempt + 1} failed: {e}")
+
+            if attempt < self.max_retries:
+                wait_time = 2 ** attempt  # Exponential backoff
+                logger.info(f"Retrying connection in {wait_time} seconds...")
+                await asyncio.sleep(wait_time)
+
+        logger.error(f"Failed to connect after {self.max_retries + 1} attempts")
+        self._connected = False
+        return False
 
     async def disconnect(self):
         """Disconnect from the MCP server."""
@@ -80,11 +105,16 @@ class MCPClient:
             List of tool definitions
         """
         if not self._connected or not self._session:
-            raise RuntimeError("Not connected to MCP server")
+            # Try to reconnect
+            if not await self.connect():
+                raise RuntimeError("Not connected to MCP server and reconnection failed")
 
         try:
-            # Use the session to list tools
-            tools_result = await self._session.list_tools()
+            # Use the session to list tools with timeout
+            tools_result = await asyncio.wait_for(
+                self._session.list_tools(),
+                timeout=self.timeout
+            )
             tools = []
 
             for tool in tools_result.tools:
@@ -110,8 +140,13 @@ class MCPClient:
                 tools.append(tool_def)
 
             return tools
+        except asyncio.TimeoutError:
+            logger.error("Timeout while listing tools")
+            self._connected = False  # Mark as disconnected
+            return []
         except Exception as e:
             logger.error(f"Error listing tools: {e}")
+            self._connected = False  # Mark as disconnected on error
             return []
 
     async def execute_tool(self, tool_name: str, parameters: Dict[str, Any]) -> ToolResult:
@@ -125,11 +160,16 @@ class MCPClient:
             Tool execution result
         """
         if not self._connected or not self._session:
-            raise RuntimeError("Not connected to MCP server")
+            # Try to reconnect
+            if not await self.connect():
+                raise RuntimeError("Not connected to MCP server and reconnection failed")
 
         try:
-            # Call the tool using the session
-            result = await self._session.call_tool(tool_name, arguments=parameters)
+            # Call the tool using the session with timeout
+            result = await asyncio.wait_for(
+                self._session.call_tool(tool_name, arguments=parameters),
+                timeout=self.timeout
+            )
 
             # Process the result
             if result.isError:
@@ -150,8 +190,13 @@ class MCPClient:
                     data=data,
                     metadata={"tool": tool_name}
                 )
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout while executing tool {tool_name}")
+            self._connected = False  # Mark as disconnected
+            return ToolResult(success=False, error="Tool execution timed out")
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}")
+            self._connected = False  # Mark as disconnected on error
             return ToolResult(success=False, error=str(e))
 
     @property
