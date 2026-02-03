@@ -26,7 +26,7 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 
 - [x] Implement tool discovery mechanism: Code logic to query available tools from MCP servers.
 - [x] Add MCP tool registry integration: Integrate discovered tools into the existing tool registry.
-- [ ] Develop CLI commands for listing available MCP tools: Add commands like 'mcp list-tools'.
+- [x] Develop CLI commands for listing available MCP tools: Add commands like 'mcp list-tools'.
 - [ ] Test tool discovery with sample MCP servers: Set up test servers and verify discovery works.
 - [ ] Implement tool metadata parsing: Parse tool descriptions, parameters, and schemas.
 - [ ] Add validation for tool discovery results: Ensure discovered tools meet security criteria.

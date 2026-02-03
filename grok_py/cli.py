@@ -14,6 +14,13 @@ app = typer.Typer(
     add_completion=False,
 )
 
+# MCP subcommand group
+mcp_app = typer.Typer(
+    name="mcp",
+    help="Manage MCP (Model Context Protocol) tools and servers",
+)
+app.add_typer(mcp_app)
+
 console = Console()
 setup_logging(log_file="grok_cli.log")
 logger = get_logger(__name__)
@@ -23,6 +30,54 @@ logger = get_logger(__name__)
 def callback():
     """Grok CLI - AI-powered terminal assistant."""
     pass
+
+
+@mcp_app.command("list-tools")
+def mcp_list_tools():
+    """List all available MCP tools."""
+    console.print("[bold blue]MCP Tools[/bold blue]")
+    console.print("Listing MCP tools is not yet implemented")
+    # TODO: Implement listing MCP tools from registered clients
+
+
+@mcp_app.command("add-server")
+def mcp_add_server(
+    server_id: str = typer.Argument(..., help="Unique ID for the MCP server"),
+    command: str = typer.Option(None, "--command", "-c", help="Command to run the MCP server (for stdio)"),
+    args: str = typer.Option("", "--args", "-a", help="Arguments for the command (space-separated)"),
+    url: str = typer.Option(None, "--url", "-u", help="HTTP URL for the MCP server"),
+):
+    """Add an MCP server."""
+    console.print(f"[bold blue]Adding MCP server[/bold blue]: {server_id}")
+
+    if command and url:
+        console.print("[red]Error: Cannot specify both command and URL[/red]")
+        return
+    if not command and not url:
+        console.print("[red]Error: Must specify either command or URL[/red]")
+        return
+
+    # TODO: Implement adding MCP server to configuration
+    console.print(f"Server type: {'stdio' if command else 'http'}")
+    if command:
+        console.print(f"Command: {command} {args}")
+
+
+@mcp_app.command("remove-server")
+def mcp_remove_server(
+    server_id: str = typer.Argument(..., help="ID of the MCP server to remove"),
+):
+    """Remove an MCP server."""
+    console.print(f"[bold blue]Removing MCP server[/bold blue]: {server_id}")
+    # TODO: Implement removing MCP server
+
+
+@mcp_app.command("list-servers")
+def mcp_list_servers():
+    """List configured MCP servers."""
+    console.print("[bold blue]MCP Servers[/bold blue]")
+    console.print("No MCP servers configured yet")
+    # TODO: Implement listing configured MCP servers
 
 
 @app.command()
