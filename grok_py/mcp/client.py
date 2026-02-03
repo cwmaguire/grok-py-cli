@@ -1,12 +1,12 @@
 """MCP (Model Context Protocol) client for integrating with MCP servers."""
 
 import asyncio
-import json
 import logging
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Any, Dict, List, Optional, Union
 
-import httpx
+from mcp import ClientSession, StdioServerParameters, types
+from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
 
 from grok_py.tools.base import ToolDefinition, ToolParameter, ToolResult
 
@@ -14,49 +14,64 @@ logger = logging.getLogger(__name__)
 
 
 class MCPClient:
-    """Client for connecting to MCP servers."""
+    """Client for connecting to MCP servers using the official MCP protocol."""
 
-    def __init__(self, server_url: str, timeout: float = 30.0):
+    def __init__(self, server_params: Union[StdioServerParameters, str], timeout: float = 30.0):
         """Initialize MCP client.
 
         Args:
-            server_url: URL of the MCP server
+            server_params: Either StdioServerParameters for stdio servers or URL string for HTTP servers
             timeout: Request timeout in seconds
         """
-        self.server_url = server_url
+        self.server_params = server_params
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._read = None
+        self._write = None
+        self._session: Optional[ClientSession] = None
         self._connected = False
 
     async def connect(self) -> bool:
-        """Connect to the MCP server.
+        """Connect to the MCP server and perform handshake.
 
         Returns:
-            True if connection successful, False otherwise
+            True if connection and handshake successful, False otherwise
         """
         try:
-            if self._client is None:
-                self._client = httpx.AsyncClient(timeout=self.timeout)
-
-            # Test connection with a ping or basic request
-            response = await self._client.get(f"{self.server_url}/health")
-            if response.status_code == 200:
+            if isinstance(self.server_params, StdioServerParameters):
+                # Stdio connection - create persistent session
+                self._read, self._write = await stdio_client.__aenter__(self.server_params)
+                self._session = ClientSession(self._read, self._write)
+                await self._session.initialize()
                 self._connected = True
-                logger.info(f"Connected to MCP server at {self.server_url}")
-                return True
+                logger.info("Connected to MCP server via stdio")
             else:
-                logger.error(f"Failed to connect to MCP server: {response.status_code}")
-                return False
+                # HTTP/SSE connection - create persistent session
+                self._read, self._write = await sse_client.__aenter__(self.server_params)
+                self._session = ClientSession(self._read, self._write)
+                await self._session.initialize()
+                self._connected = True
+                logger.info(f"Connected to MCP server at {self.server_params}")
+
+            return True
         except Exception as e:
             logger.error(f"Error connecting to MCP server: {e}")
+            self._connected = False
             return False
 
     async def disconnect(self):
         """Disconnect from the MCP server."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        if self._session:
+            # Close the session and underlying transport
+            try:
+                if hasattr(self, '_read') and hasattr(self, '_write'):
+                    if isinstance(self.server_params, StdioServerParameters):
+                        await stdio_client.__aexit__(None, None, None)
+                    else:
+                        await sse_client.__aexit__(None, None, None)
+            except:
+                pass
         self._connected = False
+        self._session = None
 
     async def list_tools(self) -> List[ToolDefinition]:
         """List available tools from the MCP server.
@@ -64,38 +79,35 @@ class MCPClient:
         Returns:
             List of tool definitions
         """
-        if not self._connected:
+        if not self._connected or not self._session:
             raise RuntimeError("Not connected to MCP server")
 
         try:
-            response = await self._client.get(f"{self.server_url}/tools")
-            response.raise_for_status()
-
-            data = response.json()
+            # Use the session to list tools
+            tools_result = await self._session.list_tools()
             tools = []
-            for tool_data in data.get("tools", []):
+
+            for tool in tools_result.tools:
                 parameters = {}
-                for param_name, param_data in tool_data.get("parameters", {}).items():
-                    if isinstance(param_data, dict):
+                if tool.inputSchema and tool.inputSchema.get("properties"):
+                    for param_name, param_schema in tool.inputSchema["properties"].items():
+                        required = param_name in tool.inputSchema.get("required", [])
                         parameters[param_name] = ToolParameter(
                             name=param_name,
-                            type=param_data.get("type", "string"),
-                            description=param_data.get("description", ""),
-                            required=param_data.get("required", False),
-                            default=param_data.get("default"),
-                            enum=param_data.get("enum")
+                            type=param_schema.get("type", "string"),
+                            description=param_schema.get("description", ""),
+                            required=required,
+                            default=param_schema.get("default"),
+                            enum=param_schema.get("enum")
                         )
-                    else:
-                        # If already ToolParameter, use as is
-                        parameters[param_name] = param_data
 
-                tool = ToolDefinition(
-                    name=tool_data["name"],
-                    description=tool_data["description"],
-                    category=tool_data.get("category", "utility"),
+                tool_def = ToolDefinition(
+                    name=tool.name,
+                    description=tool.description or "",
+                    category="mcp",  # Default category for MCP tools
                     parameters=parameters
                 )
-                tools.append(tool)
+                tools.append(tool_def)
 
             return tools
         except Exception as e:
@@ -112,28 +124,32 @@ class MCPClient:
         Returns:
             Tool execution result
         """
-        if not self._connected:
+        if not self._connected or not self._session:
             raise RuntimeError("Not connected to MCP server")
 
         try:
-            payload = {
-                "tool": tool_name,
-                "parameters": parameters
-            }
+            # Call the tool using the session
+            result = await self._session.call_tool(tool_name, arguments=parameters)
 
-            response = await self._client.post(
-                f"{self.server_url}/execute",
-                json=payload
-            )
-            response.raise_for_status()
+            # Process the result
+            if result.isError:
+                return ToolResult(
+                    success=False,
+                    error=str(result.content) if result.content else "Tool execution failed"
+                )
+            else:
+                # Extract data from content
+                data = None
+                if result.content:
+                    # Assuming text content for simplicity
+                    if isinstance(result.content, list) and len(result.content) > 0:
+                        data = result.content[0].text if hasattr(result.content[0], 'text') else str(result.content[0])
 
-            data = response.json()
-            return ToolResult(
-                success=data.get("success", False),
-                data=data.get("data"),
-                error=data.get("error"),
-                metadata=data.get("metadata", {})
-            )
+                return ToolResult(
+                    success=True,
+                    data=data,
+                    metadata={"tool": tool_name}
+                )
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}")
             return ToolResult(success=False, error=str(e))
