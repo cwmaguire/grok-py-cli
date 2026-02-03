@@ -28,9 +28,9 @@ This document contains fine-grained tasks derived from MCP_PRD.md for implementi
 - [x] Add MCP tool registry integration: Integrate discovered tools into the existing tool registry.
 - [x] Develop CLI commands for listing available MCP tools: Add commands like 'mcp list-tools'.
 - [x] Test tool discovery with sample MCP servers: Set up test servers and verify discovery works.
-- [ ] Implement tool metadata parsing: Parse tool descriptions, parameters, and schemas.
-- [ ] Add validation for tool discovery results: Ensure discovered tools meet security criteria.
-- [ ] Create unit tests for tool discovery functionality.
+- [x] Implement tool metadata parsing: Parse tool descriptions, parameters, and schemas.
+- [x] Add validation for tool discovery results: Ensure discovered tools meet security criteria.
+- [x] Create unit tests for tool discovery functionality.
 
 ## Phase 3: Tool Execution (Weeks 9-12)
 
