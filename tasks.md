@@ -1,73 +1,46 @@
-# MCP Implementation Tasks
+# Grok CLI Project - Remove Docker Sandbox
 
-This document contains fine-grained tasks derived from MCP_PRD.md for implementing MCP support in Grok CLI.
+## Project Description
+Grok CLI (grok-py-cli) is a Python-based command-line interface extending Grok AI with file editing, coding, and system operations. It uses uv for dependency management and virtual environments, with all operations performed in the activated venv (.venv). The project includes MCP (Model Context Protocol) integration for extending functionality via external servers running at localhost:8000. The current task is to remove all Docker sandbox logic and Docker dependencies from the codebase, as MCP servers handle code execution securely without needing sandboxing. The code_execution tool will be modified to run code directly via subprocess instead of in Docker containers.
 
-## Instructions for LLM
+## Instructions for Using This File
+This file contains a list of tasks to complete the removal of Docker sandbox code. Each session, complete **one** task, mark it as [x] using str_replace_editor (replace [ ] with [x] for that task), and respond with "TASK COMPLETED". If all tasks are completed, respond with "ALL TASKS COMPLETED". Always use uv and activate the virtual environment before any operations. Do not complete multiple tasks in one session.
 
-- **MANDATORY: Process EXACTLY ONE incomplete task per session.** Do not work on, mention, or plan multiple tasks in a single response. This is critical to avoid context overload—loading all tasks at once can exceed token limits and cause errors.
-- Step-by-step process:
-  1. Read the tasks.md file.
-  2. Identify the FIRST incomplete task (marked [ ]) that has no unresolved dependencies. If the first one is blocked, note the blocker and move to the next viable one—but still limit to ONE task total.
-  3. Explicitly state: "Selected task: [paste the exact task description here]."
-  4. Reference MCP_PRD.md only as needed for this single task.
-  5. Implement the task, including any code changes, documentation, or other work.
-  6. Include testing: Write and run unit tests or manual verification for this task's functionality.
-  7. Mark ONLY this task as complete by changing [ ] to [x] in an updated version of tasks.md.
-  8. Commit your work: Run `git add . && git commit -m "Completed task: [brief task description]"`.
-  9. Self-check: Confirm no other tasks were modified or referenced.
-  10. End your response immediately with: "TASK COMPLETE - READY FOR NEXT SESSION". Do NOT proceed to any other tasks.
-  11. Always use uv for Python dependencies and running Python
-- If all tasks are complete, output: "ALL TASKS COMPLETE".
-- Ignore any urge to batch tasks for efficiency—strictly adhere to one per session.
+## Tasks
+- [x] Explore and document all files containing sandbox or Docker references (use search tool)
+- [x] Delete the entire grok_py/utils/sandbox/ directory (use bash rm -rf)
+- [x] Remove Docker-related imports and code from grok_py/tools/code_execution.py, modifying it to run code directly via subprocess without Docker
+- [x] Remove "docker>=6.0.0" from dependencies in pyproject.toml
+- [x] Reinstall dependencies with uv to remove Docker package (uv pip install -e .)
+- [x] Determine what tests should be run (check test files, focus on code_execution and integration tests)
+- [x] Run the determined tests using uv run pytest or similar
+- [x] Update any documentation or comments mentioning Docker/sandbox (check README.md, status files)
+- [x] Verify that MCP tools still work by testing a simple MCP server interaction
 
-## Phase 1: Foundation (Weeks 1-4)
-
-- [x] Research MCP specification: Read the official MCP documentation thoroughly to understand the protocol.
-- [x] Understand MCP key concepts: Study handshake, tool discovery, execution, and security mechanisms.
-- [x] Set up development environment: Install MCP SDK or equivalent library in the project.
-- [x] Configure project dependencies: Update requirements.txt or equivalent with MCP-related libraries.
-- [x] Create unit tests for MCP client handshake: Write tests for establishing connections.
-- [x] Implement basic MCP client handshake: Code the initial connection logic.
-- [x] Implement MCP client connection management: Add reconnection and error handling.
-- [x] Create unit tests for core MCP functionality: Test basic operations like ping/pong.
-
-## Phase 2: Tool Discovery (Weeks 5-8)
-
-- [x] Implement tool discovery mechanism: Code logic to query available tools from MCP servers.
-- [x] Add MCP tool registry integration: Integrate discovered tools into the existing tool registry.
-- [x] Develop CLI commands for listing available MCP tools: Add commands like 'mcp list-tools'.
-- [x] Test tool discovery with sample MCP servers: Set up test servers and verify discovery works.
-- [x] Implement tool metadata parsing: Parse tool descriptions, parameters, and schemas.
-- [x] Add validation for tool discovery results: Ensure discovered tools meet security criteria.
-- [x] Create unit tests for tool discovery functionality.
-
-## Phase 3: Tool Execution (Weeks 9-12)
-
-- [x] Implement secure tool execution in isolated containers: Use Docker for sandboxing.
-- [x] Integrate MCP tool execution with existing pipeline: Modify the execution engine to handle MCP tools.
-- [x] Add error handling and timeout mechanisms: Handle failures gracefully.
-- [x] Implement input validation for tool parameters: Use JSON Schema validation.
-- [x] Add logging for tool execution: Track execution times and errors.
-- [x] Performance optimization: Optimize for low latency.
-- [x] Load testing: Test with multiple concurrent tool executions.
-- [x] Create integration tests for tool execution.
-
-## Phase 4: User Interface and Configuration (Weeks 13-16)
-
-- [x] Develop CLI commands for MCP tool management: Commands to add/remove tool sources.
-- [x] Implement configuration file support for tool sources: Allow YAML/JSON config files.
-- [x] Create user documentation: Write usage guides and examples.
-- [x] Implement tool parameter configuration: Allow users to set defaults.
-- [x] Add help commands: CLI help for MCP-related features.
-- [x] Create sample configurations: Provide example config files.
-- [x] User acceptance testing: Manual testing of UI features.
-
-## Phase 5: Testing and Refinement (Weeks 17-20)
-
-- [x] Comprehensive integration testing: Test end-to-end MCP functionality.
-- [x] Security audit: Review code for vulnerabilities.
-- [x] Penetration testing: Simulate attacks on the system.
-- [x] Performance benchmarking: Measure and optimize performance metrics.
-- [x] Bug fixes: Address issues found during testing.
-- [x] Final refinements: Polish the implementation.
-- [x] Documentation updates: Update PRD and code docs.
+## Files containing sandbox or Docker references
+- docs/project_summary.md
+- grok_py/agent/tool_manager.py
+- grok_py/grok/tools.py
+- grok_py/mcp/client.py
+- grok_py/tools/code_execution.py
+- grok_py/tools/systemctl.py
+- grok_py/utils/sandbox/docker_manager.py
+- grok_py/utils/sandbox/__init__.py
+- grok_py/utils/sandbox/language_utils.py
+- grok_py/utils/sandbox/security_utils.py
+- plans/mcp_tasks.md
+- plans/phase2_tool_implementation.md
+- plans/phase4_advanced_features.md
+- plans/phase5_testing_and_release.md
+- plans/PRD.md
+- plans/status6.md
+- pyproject.toml
+- status7.md
+- tasks.md
+- tests/conftest.py
+- tests/security/test_penetration.py
+- tests/unit/test_code_execution.py
+- tests/unit/test_mcp_client.py
+- tests/unit/test_network.py
+- tests/unit/test_systemctl.py
+- uv.lock

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentConfig:
     """Configuration for the Grok agent."""
-    model: GrokModel = GrokModel.GROK_BETA
+    model: GrokModel = GrokModel.GROK_CODE_FAST_1
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     max_conversation_tokens: int = 8000

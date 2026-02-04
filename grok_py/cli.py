@@ -4,7 +4,7 @@ import json
 import typer
 from rich.console import Console
 from grok_py.utils.logging import get_logger, setup_logging
-from grok_py.grok.client import MessageRole
+from grok_py.grok.client import Message, MessageRole
 
 # TODO: Import when implemented
 # from grok_py.agent import grok_agent
@@ -187,7 +187,7 @@ def mcp_list_servers():
 def chat(
     message: str = typer.Argument(None, help="Message to send to Grok"),
     interactive: bool = typer.Option(True, "--interactive/--non-interactive", help="Run in interactive mode"),
-    model: str = typer.Option("grok-3", "--model", "-m", help="Grok model to use"),
+    model: str = typer.Option("grok-code-fast-1", "--model", "-m", help="Grok model to use"),
     temperature: float = typer.Option(0.7, "--temperature", "-t", help="Temperature for response generation"),
     max_tokens: int = typer.Option(None, "--max-tokens", help="Maximum tokens in response"),
     mock: bool = typer.Option(False, "--mock", help="Use mock responses for testing"),

@@ -25,6 +25,7 @@ from rich.spinner import Spinner
 import re
 
 from ..utils.logging import get_logger
+from grok_py.grok.client import Message, MessageRole
 
 # Import new UI modules
 sys.path.append('../..')  # Add root to path
@@ -265,7 +266,7 @@ class ChatInterface:
 
     def add_message(self, role: str, content: str):
         """Add a message to the chat history."""
-        message = Message(role, content)
+        message = Message(MessageRole(role), content)
         self.messages.append(message)
         logger.info(f"Added {role} message: {len(content)} characters")
         self._update_display()
@@ -281,7 +282,7 @@ class ChatInterface:
 
     async def start_streaming_response(self, role: str = "assistant"):
         """Start streaming a response."""
-        self.streaming_message = Message(role, "")
+        self.streaming_message = Message(MessageRole(role), "")
         # If not already in live mode, start it
         if not self.live:
             self.live = Live(self._render_chat(), console=self.console, refresh_per_second=10)

@@ -54,7 +54,7 @@ class TerminalUI:
 
         # Status bar components
         self.auto_edit_enabled = False
-        self.model_name = "grok-3"
+        self.model_name = "grok-code-fast-1"
         self.mcp_status = "disconnected"
 
         # Command suggestions
@@ -67,7 +67,7 @@ class TerminalUI:
         self.selected_suggestion = 0
 
         # Model selection
-        self.available_models = ["grok-3", "grok-2", "grok-1", "grok-beta"]
+        self.available_models = ["grok-code-fast-1", "grok-3", "grok-2", "grok-1", "grok-beta"]
         self.show_model_selection = False
         self.model_suggestions = []
         self.selected_model = 0

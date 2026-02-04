@@ -117,7 +117,7 @@ class MCPClient:
             Dictionary containing server parameters
         """
         if isinstance(self.server_params, str):
-            return {"type": "http", "url": self.server_params}
+            return {"type": "sse", "url": self.server_params}
         else:
             # StdioServerParameters
             return {

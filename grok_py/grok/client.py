@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class GrokModel(str, Enum):
     """Available Grok models."""
+    GROK_CODE_FAST_1 = "grok-code-fast-1"
     GROK_3 = "grok-3"
     GROK_BETA = "grok-beta"  # Deprecated
     GROK_VISION_BETA = "grok-vision-beta"
@@ -234,7 +235,7 @@ class GrokClient:
     async def chat_completion(
         self,
         messages: Optional[List[Message]] = None,
-        model: Union[str, GrokModel] = GrokModel.GROK_BETA,
+        model: Union[str, GrokModel] = GrokModel.GROK_CODE_FAST_1,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
@@ -492,7 +493,7 @@ class GrokClient:
     async def send_message(
         self,
         message: str,
-        model: Union[str, GrokModel] = GrokModel.GROK_BETA,
+        model: Union[str, GrokModel] = GrokModel.GROK_CODE_FAST_1,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,

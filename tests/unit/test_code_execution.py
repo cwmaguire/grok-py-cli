@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 from grok_py.tools.code_execution import CodeExecutionTool
 from grok_py.tools.base import ToolResult
-from grok_py.utils.sandbox import Language
+from grok_py.tools.code_execution import Language
 
 
 class TestCodeExecutionTool:
@@ -12,7 +12,7 @@ class TestCodeExecutionTool:
         return CodeExecutionTool()
 
     def test_execute_sync_valid_run(self, tool, mocker):
-        mock_execute = mocker.patch.object(tool, '_execute_code_secure')
+        mock_execute = mocker.patch.object(tool, '_execute_code_direct')
         mock_execute.return_value = ToolResult(success=True, data={'output': 'hello'})
 
         result = tool.execute_sync('run', 'print("hello")', 'python')
@@ -21,7 +21,7 @@ class TestCodeExecutionTool:
         mock_execute.assert_called_once_with('print("hello")', Language.PYTHON, None, False)
 
     def test_execute_sync_valid_test(self, tool, mocker):
-        mock_execute = mocker.patch.object(tool, '_execute_code_secure')
+        mock_execute = mocker.patch.object(tool, '_execute_code_direct')
         mock_execute.return_value = ToolResult(success=True, data={'output': 'passed'})
 
         result = tool.execute_sync('test', 'assert 1 == 1', 'python', 'input')
@@ -53,20 +53,14 @@ class TestCodeExecutionTool:
         assert result.success == False
         assert 'Unsupported language' in result.error
 
-    def test_execute_sync_auto_detect_language(self, tool, mocker):
-        mock_detect = mocker.patch.object(tool.language_detector, 'detect')
-        mock_detect.return_value = Language.JAVASCRIPT
-        mock_execute = mocker.patch.object(tool, '_execute_code_secure')
-        mock_execute.return_value = ToolResult(success=True, data={})
+    def test_execute_sync_missing_language(self, tool):
+        result = tool.execute_sync('run', 'code')
 
-        result = tool.execute_sync('run', 'console.log("hello")')
-
-        assert result.success == True
-        mock_detect.assert_called_once_with('console.log("hello")')
-        mock_execute.assert_called_once_with('console.log("hello")', Language.JAVASCRIPT, None, False)
+        assert result.success == False
+        assert 'Language must be specified' in result.error
 
     def test_execute_sync_execution_error(self, tool, mocker):
-        mock_execute = mocker.patch.object(tool, '_execute_code_secure')
+        mock_execute = mocker.patch.object(tool, '_execute_code_direct')
         mock_execute.side_effect = Exception('Execution failed')
 
         result = tool.execute_sync('run', 'code', 'python')
@@ -87,20 +81,11 @@ class TestCodeExecutionTool:
     def test_validate_language_support_invalid(self, tool):
         assert tool.validate_language_support('unsupported') == False
 
-    def test_get_language_config_valid(self, tool, mocker):
-        mock_config = MagicMock()
-        mock_config.name = 'python'
-        mock_config.extensions = ['.py']
-        mock_config.image = 'python:3.9'
-        mock_config.package_manager = 'pip'
-
-        mocker.patch.object(tool.package_manager, 'get_config', return_value=mock_config)
-
+    def test_get_language_config_valid(self, tool):
         config = tool.get_language_config('python')
-        assert config['name'] == 'python'
+        assert config['name'] == 'Python'
         assert config['extensions'] == ['.py']
-        assert config['image'] == 'python:3.9'
-        assert config['package_manager'] == 'pip'
+        assert config['interpreter'] == 'python3'
 
     def test_get_language_config_invalid(self, tool):
         config = tool.get_language_config('invalid')

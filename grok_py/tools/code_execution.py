@@ -1,4 +1,4 @@
-"""Enhanced safe code execution tool using Docker containers with advanced security."""
+"""Safe code execution tool using direct subprocess execution."""
 
 import subprocess
 import shlex
@@ -8,30 +8,28 @@ import uuid
 import time
 import logging
 from typing import Optional
+from enum import Enum
 
 from .base import SyncTool, ToolCategory, ToolResult
-from ..utils.sandbox import (
-    DockerManager, SecurityUtils, LanguageDetector, PackageManager, Language
-)
 
 logger = logging.getLogger(__name__)
 
 
+class Language(Enum):
+    PYTHON = "python"
+    JAVASCRIPT = "javascript"
+    BASH = "bash"
+
+
 class CodeExecutionTool(SyncTool):
-    """Enhanced tool for safe code execution in isolated Docker containers with advanced security."""
+    """Tool for safe code execution directly via subprocess."""
 
     def __init__(self):
         super().__init__(
             name="code_execution",
-            description="Safely execute code snippets in Docker containers with advanced security, multi-language support, and dependency management",
+            description="Safely execute code snippets directly via subprocess with multi-language support",
             category=ToolCategory.DEVELOPMENT
         )
-
-        # Initialize sandbox components
-        self.docker_manager = DockerManager()
-        self.security_utils = SecurityUtils()
-        self.language_detector = LanguageDetector()
-        self.package_manager = PackageManager(self.docker_manager)
 
     def execute_sync(
         self,
@@ -40,12 +38,12 @@ class CodeExecutionTool(SyncTool):
         language: Optional[str] = None,
         input: Optional[str] = None
     ) -> ToolResult:
-        """Execute code in a safe Docker container with enhanced security.
+        """Execute code directly via subprocess.
 
         Args:
             operation: Operation to perform ('run' or 'test')
             code: Code to execute
-            language: Programming language (auto-detected if not provided)
+            language: Programming language (required)
             input: Optional input to provide to the code execution (passed via stdin)
 
         Returns:
@@ -67,23 +65,24 @@ class CodeExecutionTool(SyncTool):
                     error="Code cannot be empty"
                 )
 
-            # Detect or validate language
-            if language:
-                try:
-                    detected_lang = Language(language.lower())
-                except ValueError:
-                    return ToolResult(
-                        success=False,
-                        error=f"Unsupported language: {language}"
-                    )
-            else:
-                # Auto-detect language
-                detected_lang = self.language_detector.detect(code)
-                logger.info(f"Auto-detected language: {detected_lang.value}")
+            # Validate language
+            if not language:
+                return ToolResult(
+                    success=False,
+                    error="Language must be specified"
+                )
 
-            logger.info(f"About to call _execute_code_secure with language {detected_lang.value}")
-            # Execute the code with enhanced security
-            return self._execute_code_secure(code, detected_lang, input, operation == 'test')
+            try:
+                detected_lang = Language(language.lower())
+            except ValueError:
+                return ToolResult(
+                    success=False,
+                    error=f"Unsupported language: {language}. Supported: {[l.value for l in Language]}"
+                )
+
+            logger.info(f"About to execute code with language {detected_lang.value}")
+            # Execute the code directly
+            return self._execute_code_direct(code, detected_lang, input, operation == 'test')
 
         except Exception as e:
             logger.error(f"Code execution failed: {e}", exc_info=True)
@@ -92,165 +91,127 @@ class CodeExecutionTool(SyncTool):
                 error=f"Code execution failed: {str(e)}"
             )
 
-    def _execute_code_secure(
+    def _execute_code_direct(
         self,
         code: str,
         language: Language,
         input_data: Optional[str],
         is_test: bool
     ) -> ToolResult:
-        """Execute code in Docker container with enhanced security and monitoring."""
-        # Generate unique container name
-        container_name = f"grok-code-exec-{uuid.uuid4().hex[:8]}"
+        """Execute code directly via subprocess."""
+        # Generate unique execution id
+        exec_id = f"grok-code-exec-{uuid.uuid4().hex[:8]}"
 
         try:
-            # Analyze code for security
-            code_analysis = self.security_utils.analyze_and_log_execution(
-                code, language.value, container_name, 'test' if is_test else 'run'
-            )
-
-            # Prepare execution environment with dependencies
-            config, dep_info = self.package_manager.prepare_execution_environment(
-                code, language, container_name
-            )
-
-            # Ensure Docker image is available
-            if not self.docker_manager.pull_image(config.image):
-                return ToolResult(
-                    success=False,
-                    error=f"Failed to pull Docker image: {config.image}"
-                )
-
-            # Create container configuration with enhanced security
-            container_config = self._create_secure_container_config(config, dep_info)
-
             # Write code to temporary file
-            with tempfile.NamedTemporaryFile(mode='w', suffix=config.extensions[0], delete=False) as code_file:
+            suffix = {
+                Language.PYTHON: '.py',
+                Language.JAVASCRIPT: '.js',
+                Language.BASH: '.sh'
+            }.get(language, '.txt')
+
+            with tempfile.NamedTemporaryFile(mode='w', suffix=suffix, delete=False) as code_file:
                 code_file.write(code)
                 code_file_path = code_file.name
 
-            # Add code file to volumes
-            code_filename = f"code{config.extensions[0]}"
-            container_config.volumes[code_file_path] = f"/tmp/{code_filename}:ro"
+            # Ensure the file is readable
+            os.chmod(code_file_path, 0o644)
 
-            # Update command to use the correct filename
-            container_config.command = [cmd.replace(f"/tmp/code{config.extensions[0]}", f"/tmp/{code_filename}")
-                                       for cmd in config.command]
+            # Determine command
+            commands = {
+                Language.PYTHON: ['python3', code_file_path],
+                Language.JAVASCRIPT: ['node', code_file_path],
+                Language.BASH: ['bash', code_file_path]
+            }
+
+            cmd = commands.get(language)
+            if not cmd:
+                os.unlink(code_file_path)
+                return ToolResult(
+                    success=False,
+                    error=f"No command defined for language: {language.value}"
+                )
 
             # Execute with timeout
             timeout_seconds = 30 if not is_test else 60
 
             start_time = time.time()
-            result = self.docker_manager.run_container(
-                container_config,
-                container_name,
-                input_data=input_data,
-                timeout=timeout_seconds
-            )
-            execution_time = time.time() - start_time
+            try:
+                result = subprocess.run(
+                    cmd,
+                    input=input_data,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_seconds
+                )
+                execution_time = time.time() - start_time
 
-            # Log execution result
-            anomalies = []  # Could be enhanced with process monitoring
-            code_hash = self.security_utils.hash_code(code)
-            self.security_utils.log_execution_result(
-                container_name, language.value, code_hash,
-                result.success, execution_time, result.exit_code, anomalies
-            )
+                # Determine success
+                success = result.returncode == 0
+                if success and result.stderr.strip():
+                    # Basic error detection
+                    error_indicators = [
+                        'error', 'exception', 'traceback', 'compilation failed',
+                        'segmentation fault', 'runtime error', 'panic'
+                    ]
+                    if any(indicator in result.stderr.lower() for indicator in error_indicators):
+                        success = False
 
-            # Determine success with enhanced error checking
-            success = result.success
-            if success and result.stderr.strip():
-                # Enhanced error detection
-                error_indicators = [
-                    'error', 'exception', 'traceback', 'compilation failed',
-                    'segmentation fault', 'runtime error', 'panic'
-                ]
-                if any(indicator in result.stderr.lower() for indicator in error_indicators):
-                    success = False
-
-            # Prepare result data
-            result_data = {
-                'operation': 'test' if is_test else 'run',
-                'language': language.value,
-                'code': code,
-                'input': input_data,
-                'stdout': result.stdout.strip(),
-                'stderr': result.stderr.strip(),
-                'exit_code': result.exit_code,
-                'container_name': container_name,
-                'execution_time': execution_time,
-                'security_analysis': {
-                    'risk_score': code_analysis.risk_score,
-                    'has_dependencies': dep_info.has_dependencies,
-                    'suspicious_patterns': len(code_analysis.suspicious_patterns),
-                }
-            }
-
-            return ToolResult(
-                success=success,
-                data=result_data,
-                error=result.stderr.strip() if not success and result.stderr.strip() else None,
-                metadata={
-                    'exit_code': result.exit_code,
-                    'has_output': bool(result.stdout.strip()),
-                    'has_error': bool(result.stderr.strip()),
+                # Prepare result data
+                result_data = {
+                    'operation': 'test' if is_test else 'run',
                     'language': language.value,
-                    'timed_out': False,
-                    'container_name': container_name,
+                    'code': code,
+                    'input': input_data,
+                    'stdout': result.stdout.strip(),
+                    'stderr': result.stderr.strip(),
+                    'exit_code': result.returncode,
+                    'exec_id': exec_id,
                     'execution_time': execution_time,
-                    'risk_score': code_analysis.risk_score,
                 }
-            )
+
+                return ToolResult(
+                    success=success,
+                    data=result_data,
+                    error=result.stderr.strip() if not success and result.stderr.strip() else None,
+                    metadata={
+                        'exit_code': result.returncode,
+                        'has_output': bool(result.stdout.strip()),
+                        'has_error': bool(result.stderr.strip()),
+                        'language': language.value,
+                        'timed_out': False,
+                        'exec_id': exec_id,
+                        'execution_time': execution_time,
+                    }
+                )
+
+            except subprocess.TimeoutExpired:
+                execution_time = time.time() - start_time
+                os.unlink(code_file_path)
+                return ToolResult(
+                    success=False,
+                    error="Code execution timed out",
+                    metadata={
+                        'timed_out': True,
+                        'execution_time': execution_time,
+                        'language': language.value,
+                    }
+                )
 
         except Exception as e:
-            logger.error(f"Error in secure code execution: {e}")
-
-            # Log the error
-            code_hash = self.security_utils.hash_code(code)
-            self.security_utils.log_execution_result(
-                container_name, language.value, code_hash,
-                False, 0, -1, [str(e)]
-            )
-
-            # Cleanup
-            self.docker_manager._cleanup_container(container_name)
+            logger.error(f"Error in direct code execution: {e}")
             if 'code_file_path' in locals():
                 os.unlink(code_file_path)
-
             return ToolResult(
                 success=False,
                 error=f"Code execution failed: {str(e)}"
             )
-
-    def _create_secure_container_config(self, config, dep_info):
-        """Create a secure container configuration."""
-        from ..utils.sandbox.docker_manager import ContainerConfig
-
-        # Base security settings
-        container_config = ContainerConfig(
-            image=config.image,
-            command=config.command,
-            memory_limit="512m",  # Increased for dependencies
-            cpu_limit="1.0",      # Increased for better performance
-            network_mode="none",  # Strict network isolation
-            read_only=True,
-            tmpfs_size="200m",    # Larger tmpfs for dependencies
-        )
-
-        # Enhanced security options
-        container_config.security_opts.extend([
-            "--security-opt=no-new-privileges:true",
-            "--security-opt=seccomp=unconfined",  # Could be more restrictive
-        ])
-
-        # Add environment variables for security
-        container_config.env_vars.update({
-            "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            "HOME": "/tmp",
-            "USER": "sandbox",
-        })
-
-        return container_config
+        finally:
+            if 'code_file_path' in locals():
+                try:
+                    os.unlink(code_file_path)
+                except:
+                    pass
 
     def get_supported_languages(self) -> list:
         """Get list of supported programming languages."""
@@ -268,12 +229,11 @@ class CodeExecutionTool(SyncTool):
         """Get configuration for a specific language."""
         try:
             lang = Language(language.lower())
-            config = self.package_manager.get_config(lang)
-            return {
-                'name': config.name,
-                'extensions': config.extensions,
-                'image': config.image,
-                'package_manager': config.package_manager,
+            configs = {
+                Language.PYTHON: {'name': 'Python', 'extensions': ['.py'], 'interpreter': 'python3'},
+                Language.JAVASCRIPT: {'name': 'JavaScript', 'extensions': ['.js'], 'interpreter': 'node'},
+                Language.BASH: {'name': 'Bash', 'extensions': ['.sh'], 'interpreter': 'bash'}
             }
+            return configs.get(lang, {})
         except ValueError:
             return {}

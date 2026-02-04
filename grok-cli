@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# 2026-02-03 CM
+# Run the original grok-cli
+
+node /home/c/dev/grok-cli/dist/index.js -d /home/c/dev/grok-py-cli --auto-edit

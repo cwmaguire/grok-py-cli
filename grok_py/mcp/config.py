@@ -18,10 +18,12 @@ class MCPConfig:
         """Initialize MCP configuration.
 
         Args:
-            config_file: Path to configuration file (default: ~/.grok/mcp_config.yaml)
+            config_file: Path to configuration file (default: .grok/mcp_config.yaml in project root)
         """
         if config_file is None:
-            config_file = os.path.expanduser("~/.grok/mcp_config.yaml")
+            # Use config file in the project .grok directory
+            project_root = Path(__file__).parent.parent.parent
+            config_file = project_root / ".grok" / "mcp_config.yaml"
 
         self.config_file = Path(config_file)
         self.config_file.parent.mkdir(parents=True, exist_ok=True)

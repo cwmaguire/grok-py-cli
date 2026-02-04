@@ -1,0 +1,1 @@
+Get a description of the current UI with the screenshot tool. Be verbose about any errors with the tool. Don't worry about trying to get a description of the UI if the screenshot tool doesn't work. We're just testing the screenshot tool.

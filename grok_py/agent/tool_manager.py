@@ -389,127 +389,20 @@ class MCPToolWrapper(BaseTool):
             mcp_client: The MCP client to use for execution
             tool_definition: Definition of the MCP tool
         """
+        super().__init__(name=tool_definition.name, description=tool_definition.description, category=tool_definition.category)
         self.mcp_client = mcp_client
         self.tool_definition = tool_definition
-        self._name = tool_definition.name
-        self._description = tool_definition.description
-        self._category = tool_definition.category
 
-    @property
-    def name(self) -> str:
-        """Tool name."""
-        return self._name
-
-    @property
-    def description(self) -> str:
-        """Tool description."""
-        return self._description
-
-    @property
-    def category(self) -> ToolCategory:
-        """Tool category."""
-        return self._category
+    # Properties inherited from BaseTool
 
     def get_definition(self) -> ToolDefinition:
         """Get tool definition."""
         return self.tool_definition
 
-    @staticmethod
-    def generate_sandbox_code(server_params_dict: Dict[str, Any], tool_name: str, parameters: Dict[str, Any], timeout: float) -> str:
-        """Generate Python code for sandboxed MCP tool execution.
 
-        Args:
-            server_params_dict: Serialized server parameters
-            tool_name: Name of the tool to execute
-            parameters: Tool parameters
-            timeout: Timeout for the operation
-
-        Returns:
-            Python code as string
-        """
-        import json
-        params_json = json.dumps(server_params_dict)
-        args_json = json.dumps(parameters)
-
-        code = f"""
-import asyncio
-import json
-import sys
-from typing import Any, Dict
-
-from mcp import StdioServerParameters, ClientSession
-from mcp.client.stdio import stdio_client
-from mcp.client.sse import sse_client
-
-async def main():
-    try:
-        server_params_dict = {params_json!r}
-        tool_name = {tool_name!r}
-        parameters = {args_json!r}
-        timeout = {timeout!r}
-
-        if server_params_dict["type"] == "sse":
-            url = server_params_dict["url"]
-            read, write = await asyncio.wait_for(
-                sse_client.__aenter__(url),
-                timeout=timeout
-            )
-        else:
-            # stdio
-            params = StdioServerParameters(
-                command=server_params_dict["command"],
-                args=server_params_dict["args"],
-                env=server_params_dict["env"],
-                cwd=server_params_dict["cwd"],
-                encoding=server_params_dict["encoding"]
-            )
-            read, write = await asyncio.wait_for(
-                stdio_client.__aenter__(params),
-                timeout=timeout
-            )
-
-        session = ClientSession(read, write)
-        await asyncio.wait_for(
-            session.initialize(),
-            timeout=timeout
-        )
-
-        result = await asyncio.wait_for(
-            session.call_tool(tool_name, arguments=parameters),
-            timeout=timeout
-        )
-
-        if result.isError:
-            output = json.dumps({{
-                "success": False,
-                "error": str(result.content) if result.content else "Tool execution failed"
-            }})
-        else:
-            data = None
-            if result.content:
-                if isinstance(result.content, list) and len(result.content) > 0:
-                    data = result.content[0].text if hasattr(result.content[0], 'text') else str(result.content[0])
-            output = json.dumps({{
-                "success": True,
-                "data": data
-            }})
-
-        print(output)
-
-    except Exception as e:
-        error_output = json.dumps({{
-            "success": False,
-            "error": str(e)
-        }})
-        print(error_output)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-"""
-        return code
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Execute the MCP tool in a secure Docker container.
+        """Execute the MCP tool directly via the MCP client.
 
         Args:
             **kwargs: Tool parameters
@@ -517,48 +410,4 @@ if __name__ == "__main__":
         Returns:
             Tool execution result
         """
-        try:
-            # Get server params
-            server_params_dict = self.mcp_client.get_server_params_dict()
-
-            # Generate sandbox code
-            code = self.generate_sandbox_code(
-                server_params_dict,
-                self.name,
-                kwargs,
-                self.mcp_client.timeout
-            )
-
-            # Execute in Docker sandbox
-            execution_tool = CodeExecutionTool()
-            result = await asyncio.to_thread(
-                execution_tool.execute_sync,
-                operation="run",
-                code=code,
-                language="python"
-            )
-
-            # Parse the JSON output
-            if result.success and result.data:
-                try:
-                    output = json.loads(result.data.strip())
-                    return ToolResult(
-                        success=output.get("success", False),
-                        data=output.get("data"),
-                        error=output.get("error"),
-                        metadata={"tool": self.name}
-                    )
-                except json.JSONDecodeError:
-                    return ToolResult(
-                        success=False,
-                        error=f"Invalid JSON output from sandbox: {result.data}"
-                    )
-            else:
-                return ToolResult(
-                    success=False,
-                    error=result.error or "Sandbox execution failed"
-                )
-
-        except Exception as e:
-            logger.error(f"Error executing MCP tool {self.name}: {e}")
-            return ToolResult(success=False, error=str(e))
+        return await self.mcp_client.execute_tool(self.name, kwargs)
