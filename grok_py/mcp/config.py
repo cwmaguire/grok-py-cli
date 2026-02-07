@@ -137,5 +137,6 @@ class MCPConfig:
 
         timeout = config.get('timeout', 30.0)
         max_retries = config.get('max_retries', 3)
+        execute_timeout = config.get('execute_timeout', 60.0)  # Default 60 seconds for tool execution
 
-        return MCPClient(server_params, connect_timeout=timeout, max_retries=max_retries)
+        return MCPClient(server_params, connect_timeout=timeout, execute_timeout=execute_timeout, max_retries=max_retries)

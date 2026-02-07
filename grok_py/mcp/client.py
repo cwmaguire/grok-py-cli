@@ -154,7 +154,7 @@ class MCPClient:
                     return True
                 elif self.is_http:
                     # HTTP connection: initialize via POST for streamable-http
-                    self.client = httpx.AsyncClient()
+                    self.client = httpx.AsyncClient(timeout=self.execute_timeout)
                     init_data = {
                         "jsonrpc": "2.0",
                         "id": self._request_id,
@@ -168,11 +168,16 @@ class MCPClient:
                     headers = {"Accept": "application/json, text/event-stream"}
                     response = await self.client.post(self.server_params, json=init_data, headers=headers)
                     response.raise_for_status()
-                    self.session_id = response.headers.get("mcp-session-id")
-                    if not self.session_id:
-                        raise Exception("No MCP-Session-Id header in initialize response")
-                    self._request_id += 1
-                    self._connected = True
+
+                    # Parse the initialize response to get server capabilities
+                    init_response = response.json()
+                    if init_response.get("result"):
+                        # Store session info if available, but don't require it
+                        self.session_id = response.headers.get("mcp-session-id")
+                        self._request_id += 1
+                        self._connected = True
+                    else:
+                        raise Exception(f"Initialize failed: {init_response.get('error', 'Unknown error')}")
                     logger.info(f"Connected to MCP server at {self.server_params}")
                     return True
 
@@ -230,7 +235,9 @@ class MCPClient:
                     "method": "tools/list",
                     "params": {}
                 }
-                headers = {"Accept": "application/json, text/event-stream", "Mcp-Session-Id": self.session_id}
+                headers = {"Accept": "application/json, text/event-stream"}
+                if self.session_id:
+                    headers["Mcp-Session-Id"] = self.session_id
                 response = await asyncio.wait_for(
                     self.client.post(self.server_params, json=data, headers=headers),
                     timeout=self.execute_timeout
@@ -318,7 +325,9 @@ class MCPClient:
                         "arguments": parameters
                     }
                 }
-                headers = {"Accept": "application/json, text/event-stream", "Mcp-Session-Id": self.session_id}
+                headers = {"Accept": "application/json, text/event-stream"}
+                if self.session_id:
+                    headers["Mcp-Session-Id"] = self.session_id
                 response = await asyncio.wait_for(
                     self.client.post(self.server_params, json=data, headers=headers),
                     timeout=self.execute_timeout
@@ -335,6 +344,7 @@ class MCPClient:
                     else:
                         raise ValueError("Invalid response format")
                 self._request_id += 1
+                logger.info("Full MCP server response for tools/call: %s", json.dumps(rpc_result, indent=2))
                 tool_result = rpc_result["result"]
             else:
                 # Stdio: use session
